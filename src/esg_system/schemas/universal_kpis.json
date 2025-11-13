@@ -1,0 +1,20 @@
+{
+  "total_ghg_emissions": {
+    "name": "Total GHG Emissions",
+    "description": "Total greenhouse gas emissions in CO2-equivalent.",
+    "unit": "tCO2e",
+    "category": "environment"
+  },
+  "energy_consumption": {
+    "name": "Energy Consumption",
+    "description": "Total energy consumed during the reporting period.",
+    "unit": "MWh",
+    "category": "environment"
+  },
+  "water_withdrawal": {
+    "name": "Water Withdrawal",
+    "description": "Total water withdrawn from all sources.",
+    "unit": "m3",
+    "category": "environment"
+  }
+}

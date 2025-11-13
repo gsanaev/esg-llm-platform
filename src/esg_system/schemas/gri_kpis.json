@@ -1,0 +1,14 @@
+{
+  "305-1": {
+    "name": "Direct GHG Emissions (Scope 1)",
+    "description": "Greenhouse gas emissions from operations owned or controlled by the organization.",
+    "unit": "tCO2e",
+    "category": "environment"
+  },
+  "302-1": {
+    "name": "Energy Consumption within the Organization",
+    "description": "Energy consumed internally from fuel and electricity.",
+    "unit": "MWh",
+    "category": "environment"
+  }
+}
