@@ -1,110 +1,88 @@
 import re
 from typing import Dict, Any, List, Optional
+import pdfplumber
 from esg_system.config import load_config
-from esg_system.core.table_reader import extract_tables
 
 
-# ---------------------------------------
-# Helper functions
-# ---------------------------------------
+def _clean(text: str) -> str:
+    if not text:
+        return ""
+    return " ".join(text.split()).strip().lower()
 
-def normalize_number(s: str) -> Optional[float]:
-    """Convert extracted numeric string into a float."""
-    s = s.replace(",", "")
+
+def _extract_number_from_cell(cell: str) -> Optional[float]:
+    """Extract the first numeric value from a table cell."""
+    if not cell:
+        return None
+
+    match = re.search(r"([0-9][0-9,\.]*)", cell)
+    if not match:
+        return None
+
+    raw = match.group(1).replace(",", "")
     try:
-        return float(s)
+        return float(raw)
     except ValueError:
         return None
 
 
-def find_numbers_in_row(row: List[str]) -> List[re.Match]:
-    """Find all numeric regex matches in a row of cells."""
-    pattern = re.compile(r"\b[0-9][0-9,\.]*\b")
-    matches = []
-    for cell in row:
-        if not isinstance(cell, str):
-            continue
-        matches.extend(pattern.finditer(cell))
-    return matches
-
-
-def find_unit_in_cell(cell: str, allowed_units: List[str]) -> Optional[str]:
-    """Check if a cell contains one of the allowed KPI units."""
-    if not isinstance(cell, str):
-        return None
-
+def _find_unit_in_row(row_text: str, allowed_units: List[str]) -> Optional[str]:
+    """Find unit by scanning entire row text."""
     for unit in allowed_units:
-        pattern = re.compile(rf"\b{re.escape(unit)}\b", re.IGNORECASE)
-        if pattern.search(cell):
+        if re.search(rf"\b{re.escape(unit)}\b", row_text, re.IGNORECASE):
             return unit
     return None
 
 
-# ---------------------------------------
-# Main Extraction Function
-# ---------------------------------------
-
 def extract_kpis_from_tables(pdf_path: str) -> Dict[str, Dict[str, Any]]:
     """
-    Extract KPI values from tables found in the PDF.
-    - Look for KPI synonyms in table cells.
-    - If found in a row, extract numeric values in that row.
-    - Extract unit if possible.
+    Extract KPIs from tables inside a PDF.
+    Returns a dict like:
+       { "total_ghg_emissions": {"value": 123400, "unit": "tCO2e"}, ... }
     """
 
     cfg = load_config()
+    rules = cfg.mapping_rules.get("universal_kpis", {})
     results = {}
 
-    universal_rules = cfg.mapping_rules.get("universal_kpis", {})
-    tables = extract_tables(pdf_path)
+    with pdfplumber.open(pdf_path) as pdf:
+        for page in pdf.pages:
+            tables = page.extract_tables()
 
-    for kpi_code, kpi_info in universal_rules.items():
-        synonyms = kpi_info.get("synonyms", [])
-        allowed_units = kpi_info.get("units", [])
+            for table in tables:
+                for row in table:
+                    if not row:
+                        continue
 
-        for table in tables:
-            for row in table:
+                    # Clean cells
+                    cleaned = [_clean(c) for c in row if c is not None]
+                    row_text = " ".join(cleaned)
 
-                # Convert None values to empty strings
-                cleaned_row = [c if isinstance(c, str) else "" for c in row]
+                    # Check each KPI
+                    for kpi_code, kpi_info in rules.items():
+                        synonyms = [s.lower() for s in kpi_info.get("synonyms", [])]
+                        units = kpi_info.get("units", [])
 
-                # Check if any cell contains a synonym
-                row_contains_kpi = False
-                for synonym in synonyms:
-                    syn_pattern = re.compile(rf"\b{re.escape(synonym)}\b", re.IGNORECASE)
-                    if any(syn_pattern.search(cell) for cell in cleaned_row):
-                        row_contains_kpi = True
-                        break
+                        # Check if row contains a synonym
+                        if not any(s in row_text for s in synonyms):
+                            continue
 
-                if not row_contains_kpi:
-                    continue
+                        # Extract numeric value from any cell after the label
+                        numeric_values = [
+                            _extract_number_from_cell(c)
+                            for c in cleaned[1:]  # skip first cell (label cell)
+                        ]
+                        numeric_values = [n for n in numeric_values if n is not None]
 
-                # Extract numbers from the row
-                numbers = find_numbers_in_row(cleaned_row)
-                if not numbers:
-                    continue
+                        if not numeric_values:
+                            continue
 
-                # Take the first numeric value (minimal version)
-                number_match = numbers[0]
-                value_raw = number_match.group()
-                value = normalize_number(value_raw)
+                        # Take the first numeric cell
+                        value = numeric_values[0]
 
-                # Try to detect units from any cell in the row
-                unit = None
-                for cell in cleaned_row:
-                    unit = find_unit_in_cell(cell, allowed_units)
-                    if unit:
-                        break
+                        # Detect unit in the entire row
+                        unit = _find_unit_in_row(row_text, units)
 
-                # Save and stop searching for this KPI
-                if value is not None:
-                    results[kpi_code] = {
-                        "value": value,
-                        "unit": unit
-                    }
-                    break  # Stop scanning rows for this KPI
-
-            if kpi_code in results:
-                break  # Stop scanning tables for this KPI
+                        results[kpi_code] = {"value": value, "unit": unit}
 
     return results

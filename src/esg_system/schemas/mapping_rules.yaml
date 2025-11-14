@@ -1,37 +1,50 @@
 universal_kpis:
+
   total_ghg_emissions:
     synonyms:
+      - "greenhouse gas emissions"
+      - "total greenhouse gas emissions"
+      - "GHG emissions"
+      - "GHG total"
+      - "total GHG"
       - "scope 1 and 2 emissions"
-      - "total carbon emissions"
-      - "ghg total"
+      - "carbon emissions"
+      - "CO2e emissions"
+      - "CO₂e emissions"
     units:
       - "tCO2e"
+      - "t CO2e"
+      - "tCO₂e"
+      - "t CO₂e"
+      - "tons CO2e"
       - "tonnes CO2e"
+      - "tCO2-e"
+      - "CO2e"
 
   energy_consumption:
     synonyms:
+      - "energy consumption"
+      - "total energy consumption"
+      - "energy use"
+      - "energy usage"
       - "total energy use"
-      - "energy consumed"
+      - "electricity consumption"
     units:
       - "MWh"
+      - "MWh/year"
+      - "kWh"
       - "GWh"
 
   water_withdrawal:
     synonyms:
-      - "total water use"
-      - "water consumed"
+      - "water withdrawal"
+      - "total water withdrawal"
+      - "water extracted"
+      - "water intake"
+      - "water used"
     units:
       - "m3"
-
-gri:
-  "305-1":
-    synonyms:
-      - "scope 1 emissions"
-      - "direct emissions"
-
-sasb:
-  airlines:
-    fuel_efficiency:
-      synonyms:
-        - "fuel per ask"
-        - "fuel efficiency"
+      - "m³"
+      - "cubic meters"
+      - "thousand m3"
+      - "million m3"

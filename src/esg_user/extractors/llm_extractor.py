@@ -10,24 +10,37 @@ from esg_user.prompts.llm_prompts import build_llm_prompt
 
 def call_llm(prompt: str) -> str:
     """
-    Placeholder LLM call.
-    Replace this function with your preferred LLM client 
-    (OpenAI, Anthropic, Groq, LM Studio, Ollama, etc.)
+    Call the LLM backend with the given prompt and return the raw string response.
 
-    For now, it raises a clear message so we don't accidentally call an API.
+    This is a placeholder. You must implement this for a real model.
+
+    Example for OpenAI (pseudo-code):
+
+        from openai import OpenAI
+
+        client = OpenAI()
+
+        def call_llm(prompt: str) -> str:
+            response = client.chat.completions.create(
+                model="gpt-4.1-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0,
+            )
+            return response.choices[0].message.content
+
+    Until you implement this, the extractor will fall back to returning
+    empty results (all values None) so the pipeline still runs.
     """
-    raise NotImplementedError(
-        "LLM backend not configured. Please implement call_llm() to use a real model."
-    )
+    raise NotImplementedError("LLM backend not configured. Implement call_llm() to enable LLM extraction.")
 
 
 # -----------------------------
 # Parsing Helper
 # -----------------------------
 
-def safe_json_loads(s: str) -> Dict[str, Any]:
+def _safe_json_loads(s: str) -> Dict[str, Any]:
     """
-    Safely parse JSON. If parsing fails, return empty dict.
+    Safely parse JSON, returning an empty dict on failure.
     """
     try:
         return json.loads(s)
@@ -44,32 +57,38 @@ def extract_kpis_llm(text: str) -> Dict[str, Dict[str, Any]]:
     Schema-guided ESG KPI extraction using an LLM.
 
     Steps:
-    - Load KPI schema
-    - Construct a controlled prompt
-    - Send to LLM backend
+    - Load KPI schema (universal_kpis)
+    - Build a controlled prompt
+    - Send it to the LLM backend (via call_llm)
     - Parse JSON output
+    - Normalize result to include all KPI codes
     """
 
     cfg = load_config()
+    kpi_schema = cfg.universal_kpis  # dict of KPI codes -> metadata
 
-    # For now: only universal KPIs
-    kpi_schema = cfg.universal_kpis
+    # If schema is empty, just return an empty dict
+    if not kpi_schema:
+        return {}
 
     prompt = build_llm_prompt(text, kpi_schema)
 
     try:
         llm_response = call_llm(prompt)
     except NotImplementedError:
-        # For development: return empty, but with the right structure
-        return {k: {"value": None, "unit": None} for k in kpi_schema.keys()}
+        # Fallback: return empty results, but with all keys present
+        return {
+            code: {"value": None, "unit": None}
+            for code in kpi_schema.keys()
+        }
 
-    extracted = safe_json_loads(llm_response)
+    parsed = _safe_json_loads(llm_response)
 
-    # Normalize result: ensure all keys present
-    final = {}
+    # Normalize: ensure every KPI code is present with value/unit keys
+    final: Dict[str, Dict[str, Any]] = {}
 
     for kpi_code in kpi_schema.keys():
-        item = extracted.get(kpi_code, {})
+        item = parsed.get(kpi_code, {})
         final[kpi_code] = {
             "value": item.get("value"),
             "unit": item.get("unit"),

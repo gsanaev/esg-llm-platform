@@ -1,84 +1,84 @@
 import re
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from esg_system.config import load_config
 
 
-# -----------------------------
-# Helper functions
-# -----------------------------
+def normalize_number(raw: str, context: str) -> float | None:
+    """
+    Convert extracted raw number into float.
+    Handle:
+    - commas, spaces
+    - parentheses
+    - million / thousand scale words
+    """
 
-def normalize_number(s: str) -> Optional[float]:
-    """Convert extracted numeric string into a float. Handles commas."""
-    s = s.replace(",", "")
+    cleaned = raw.replace(",", "").replace(" ", "")
+    cleaned = cleaned.replace("(", "").replace(")", "")
+
     try:
-        return float(s)
+        value = float(cleaned)
     except ValueError:
         return None
 
+    # scaling
+    lower_context = context.lower()
 
-def build_kpi_patterns(synonyms: List[str]) -> List[re.Pattern]:
+    if "million" in lower_context:
+        value *= 1_000_000
+    elif "thousand" in lower_context:
+        value *= 1_000
+
+    return value
+
+
+def build_kpi_patterns(synonyms: List[str], units: List[str]) -> List[re.Pattern]:
     """
-    Build simple regex patterns to match KPI synonyms and capture nearby numbers.
-    Pattern: synonym ... number
+    Match:
+    synonym → any text → number → unit
     """
+
     patterns = []
+    unit_regex = "|".join(re.escape(u) for u in units)
+
+    # improved number pattern
+    number_pattern = r"(-?\(?\d[\d\s,\.]*\)?)"
+
     for synonym in synonyms:
         pattern = re.compile(
-            rf"{re.escape(synonym)}[^0-9]*([0-9][0-9,\.]*)",
-            re.IGNORECASE
+            rf"{re.escape(synonym)}"
+            rf".*?"                 # lazy text match
+            rf"{number_pattern}"    # number
+            rf"\s*(?:{unit_regex})",# valid unit
+            re.IGNORECASE | re.DOTALL,
         )
         patterns.append(pattern)
 
     return patterns
 
 
-def find_unit_around(text: str, number_span: tuple, allowed_units: List[str]) -> Optional[str]:
-    """
-    Look near the numeric match for allowed units.
-    We scan a small window after the number.
-    """
-    _, end = number_span
-    window = text[end : end + 20]  # search 20 chars after the number
-
-    for unit in allowed_units:
-        pattern = re.compile(rf"\b{re.escape(unit)}\b", re.IGNORECASE)
-        if pattern.search(window):
-            return unit
-
-    return None
-
-
-# -----------------------------
-# Main extraction function
-# -----------------------------
-
 def extract_kpis_regex(text: str) -> Dict[str, Dict[str, Any]]:
-    """Extract KPI values from text using simple regex patterns."""
-
     cfg = load_config()
     results = {}
 
-    # Only universal KPIs for now (GRI/SASB come later)
     universal_rules = cfg.mapping_rules.get("universal_kpis", {})
 
     for kpi_code, kpi_info in universal_rules.items():
         synonyms = kpi_info.get("synonyms", [])
-        allowed_units = kpi_info.get("units", [])
-        patterns = build_kpi_patterns(synonyms)
+        units = kpi_info.get("units", [])
+
+        patterns = build_kpi_patterns(synonyms, units)
 
         for pattern in patterns:
             match = pattern.search(text)
             if match:
-                value_raw = match.group(1)
-                value = normalize_number(value_raw)
-
-                # Find unit near the numeric value
-                unit = find_unit_around(text, match.span(1), allowed_units)
+                raw_value = match.group(1)
+                context_span = text[max(0, match.start() - 40): match.end() + 40]
+                value = normalize_number(raw_value, context_span)
 
                 results[kpi_code] = {
                     "value": value,
-                    "unit": unit
+                    "unit": units[0] if units else None
                 }
-                break  # Only first match per KPI needed
+                break
 
     return results
