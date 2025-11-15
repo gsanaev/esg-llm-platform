@@ -1,64 +1,121 @@
-from typing import Dict, Any, Optional
-from esg_system.config import load_config
+from __future__ import annotations
 
+import logging
+from typing import Any, Dict, Mapping, Optional
 
-# -----------------------------------------
-# Simple conversion rules (placeholder)
-# -----------------------------------------
+from esg_user.types import ExtractorResultDict
 
-# You can extend this at any time.
-UNIT_CONVERSION = {
-    ("GWh", "MWh"): 1000,
-    ("MWh", "GWh"): 0.001,
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------
+# Canonical unit definitions
+# ---------------------------------------------------------------------
+
+UNIT_CANONICAL_MAP: Dict[str, str] = {
+    # Energy
+    "mwh": "MWh",
+    "megawatt hours": "MWh",
+    "gwh": "MWh",
+    "twh": "MWh",
+    "kwh": "MWh",
+
+    # Emissions
+    "tco2e": "tCO2e",
+    "tonnes co2e": "tCO2e",
+    "tons co2e": "tCO2e",
+    "ktco2e": "tCO2e",
+    "mtco2e": "tCO2e",
+
+    # Water
+    "m3": "m³",
+    "m^3": "m³",
+    "m³": "m³",
+    "cubic meters": "m³",
 }
 
 
-def convert_unit(value: Optional[float], unit: Optional[str], target_unit: Optional[str]) -> Optional[float]:
+UNIT_MULTIPLIERS: Dict[str, float] = {
+    # Energy → MWh
+    "kwh": 1e-3,
+    "mwh": 1.0,
+    "gwh": 1e3,
+    "twh": 1e6,
+
+    # Emissions → tCO2e
+    "tco2e": 1.0,
+    "ktco2e": 1e3,
+    "mtco2e": 1e6,
+
+    # Water → m³
+    "m3": 1.0,
+    "m^3": 1.0,
+    "m³": 1.0,
+}
+
+
+def _canonical_unit(raw_unit: Optional[str]) -> Optional[str]:
+    if not raw_unit:
+        return None
+    return UNIT_CANONICAL_MAP.get(raw_unit.lower(), raw_unit)
+
+
+def _conversion_multiplier(raw_unit: Optional[str]) -> float:
+    if not raw_unit:
+        return 1.0
+    return UNIT_MULTIPLIERS.get(raw_unit.lower(), 1.0)
+
+
+# ---------------------------------------------------------------------
+# Main normalization entry point
+# ---------------------------------------------------------------------
+
+
+def normalize_kpis(
+    extracted: Mapping[str, Any],
+) -> Dict[str, ExtractorResultDict]:
     """
-    Convert 'value' from 'unit' to 'target_unit' using UNIT_CONVERSION.
-    If value is None or no conversion exists, return value unchanged.
+    Normalize a loose mapping of KPI → result dict into
+    a strict Dict[str, ExtractorResultDict] with:
+
+    - canonical units
+    - converted numeric values
+    - consistent confidence, source, raw_* fields
     """
-    if value is None or unit is None or target_unit is None:
-        return value
 
-    key = (unit, target_unit)
-    if key in UNIT_CONVERSION:
-        return value * UNIT_CONVERSION[key]
+    normalized: Dict[str, ExtractorResultDict] = {}
 
-    return value
+    for code, raw in extracted.items():
+        if not isinstance(raw, Mapping):
+            raw_dict: Dict[str, Any] = {}
+        else:
+            raw_dict = dict(raw)
 
+        raw_value = raw_dict.get("value")
+        raw_unit = raw_dict.get("unit")
+        confidence = float(raw_dict.get("confidence", 0.0))
 
-# -----------------------------------------
-# Main normalization function
-# -----------------------------------------
+        # Canonical and converted unit/value
+        unit_std = _canonical_unit(raw_unit)
+        multiplier = _conversion_multiplier(raw_unit)
 
-def normalize_kpis(kpi_dict: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-    """
-    Normalize KPI dictionary:
-    - Convert units to canonical units defined in schema
-    - Ensure value is numeric and valid
-    - Leave None values untouched
-    """
-    cfg = load_config()
-    universal_schema = cfg.universal_kpis
+        try:
+            value_std = float(raw_value) * multiplier if raw_value is not None else None
+        except Exception:  # pragma: no cover
+            logger.debug("Failed to convert raw_value '%s' for KPI '%s'", raw_value, code)
+            value_std = None
 
-    normalized = {}
+        source = raw_dict.get("source", [])
+        if not isinstance(source, list):
+            source = [str(source)]
 
-    for kpi_code, entry in kpi_dict.items():
-        value = entry.get("value")
-        unit = entry.get("unit")
+        normalized[code] = ExtractorResultDict(
+            value=value_std,
+            unit=unit_std,
+            confidence=confidence,
+            source=source,
+            raw_value=raw_value,
+            raw_unit=raw_unit,
+        )
 
-        # Canonical unit from schema
-        canonical_unit = universal_schema.get(kpi_code, {}).get("unit")
-
-        # Convert only if necessary
-        if canonical_unit and unit and unit != canonical_unit:
-            value = convert_unit(value, unit, canonical_unit)
-            unit = canonical_unit
-
-        normalized[kpi_code] = {
-            "value": value,
-            "unit": unit or canonical_unit,
-        }
-
+    logger.debug("Normalized KPI results: %s", normalized)
     return normalized

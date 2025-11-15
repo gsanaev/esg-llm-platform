@@ -1,3 +1,7 @@
+# Raw input PDFs and outputs
+data/raw/*.pdf
+output.json
+
 # Python-generated files
 __pycache__/
 *.py[oc]
@@ -7,4 +11,24 @@ wheels/
 *.egg-info
 
 # Virtual environments
-.venv
+.venv/
+
+# Environment & secrets
+.env
+*.env
+.env.*
+
+# Logs and debug
+logs/
+*.log
+
+# Jupyter notebook state
+.ipynb_checkpoints/
+
+# Local data output
+data/processed/
+data/parsed/
+
+# OS-specific
+.DS_Store
+Thumbs.db

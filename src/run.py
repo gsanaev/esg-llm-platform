@@ -1,62 +1,63 @@
+from __future__ import annotations
+
 import argparse
+import json
+import logging
+from pathlib import Path
+
 from esg_system.core.pdf_reader import extract_text
 from esg_user.pipeline.extract_kpis import extract_all_kpis
-from esg_user.pipeline.normalize_kpis import normalize_kpis
-from esg_user.pipeline.assemble_output import assemble_output, export_to_json
-from typing import Optional
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
-def run_pipeline(pdf_path: str, output_path: Optional[str] = None) -> None:
-    """
-    Execute the full ESG extraction pipeline for a single PDF.
-    """
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="ESG KPI Extraction CLI")
 
-    # 1. Load PDF text
-    print(f"Reading PDF: {pdf_path}")
-    text = extract_text(pdf_path)
-
-    # 2. Extract raw KPIs
-    print("Extracting raw KPIs...")
-    raw_kpis = extract_all_kpis(text)
-
-    # 3. Normalize KPI values and units
-    print("Normalizing KPIs...")
-    normalized = normalize_kpis(raw_kpis)
-
-    # 4. Assemble final structured output
-    print("Assembling final output...")
-    final_output = assemble_output(normalized, source_pdf=pdf_path)
-
-    # 5. Optional save as JSON
-    if output_path:
-        print(f"Saving output to {output_path}...")
-        export_to_json(final_output, output_path)
-
-    print("Pipeline completed.")
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Run ESG KPI extraction pipeline on a PDF document."
+    parser.add_argument(
+        "--input",
+        "-i",
+        required=True,
+        help="Path to the PDF ESG report",
     )
 
     parser.add_argument(
-        "pdf_path",
-        type=str,
-        help="Path to the PDF file to process."
-    )
-
-    parser.add_argument(
-        "-o",
         "--output",
-        type=str,
-        default=None,
-        help="Optional path to save JSON output."
+        "-o",
+        help="Where to save the extracted KPIs as JSON",
     )
 
-    args = parser.parse_args()
+    return parser.parse_args()
 
-    run_pipeline(args.pdf_path, args.output)
+
+def main() -> None:
+    args = parse_args()
+
+    pdf_path = Path(args.input)
+    if not pdf_path.exists():
+        logger.error("Input PDF not found: %s", pdf_path)
+        return
+
+    # Step 1: extract raw text
+    logger.info("Extracting text...")
+    text = extract_text(str(pdf_path))
+
+    # Step 2: extract KPIs
+    logger.info("Running KPI pipeline...")
+    results = extract_all_kpis(text=text, pdf_path=str(pdf_path))
+
+    # Optional: save as JSON
+    if args.output:
+        out_path = Path(args.output)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(results, f, indent=2, ensure_ascii=False)
+
+        logger.info("Saved KPI results to %s", out_path)
+    else:
+        print(json.dumps(results, indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":

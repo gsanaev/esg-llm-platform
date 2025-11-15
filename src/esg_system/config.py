@@ -1,6 +1,7 @@
 import json
 import yaml
 from pathlib import Path
+import logging
 
 BASE_DIR = Path(__file__).resolve().parent
 SCHEMA_DIR = BASE_DIR / "schemas"
@@ -26,3 +27,18 @@ class ESGConfig:
 
 def load_config():
     return ESGConfig()
+
+def setup_logging(level: str = "INFO") -> None:
+    """
+    Configure root logger for the entire ESG-LM platform.
+    Safe to call multiple times.
+    """
+
+    numeric_level = getattr(logging, level.upper(), logging.INFO)
+    logging.basicConfig(
+        level=numeric_level,
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    )
+
+# Run once when importing config
+setup_logging()

@@ -1,67 +1,125 @@
-from typing import Dict, Any, Optional
+from __future__ import annotations
+
+import logging
+from typing import Any, Dict, Optional, Callable
+
 from esg_system.config import load_config
+
 from esg_user.extractors.regex_extractor import extract_kpis_regex
 from esg_user.extractors.nlp_extractor import extract_kpis_nlp
-from esg_user.extractors.table_extractor import extract_kpis_from_tables
 from esg_user.extractors.llm_extractor import extract_kpis_llm
+from esg_user.extractors.table_engine import extract_kpis_from_tables_unified
+
+from esg_user.pipeline.fusion import fuse_all
+from esg_user.pipeline.normalize_kpis import normalize_kpis
+
+from esg_user.types import ExtractorResultDict
+
+logger = logging.getLogger(__name__)
 
 
-def merge_kpi_sources(
-    base: Dict[str, Dict[str, Any]],
-    new: Dict[str, Dict[str, Any]]
-) -> Dict[str, Dict[str, Any]]:
+# -------------------------------------------------------------------
+# Safe extractor wrapper
+# -------------------------------------------------------------------
+
+def _safe_run_extractor(
+    name: str,
+    func: Callable[..., Dict[str, Any]],
+    *args: Any,
+    **kwargs: Any,
+) -> Dict[str, Any]:
     """
-    Merge results by filling missing values in base with values from new.
-    If base[kpi]['value'] is None and new[kpi]['value'] is not None -> take new.
-    Units follow same rule.
+    Run an extractor safely. If it fails or returns non-dict, return {}.
     """
-    result = base.copy()
+    try:
+        logger.debug("Running extractor: %s", name)
+        result = func(*args, **kwargs)
+        if not isinstance(result, dict):
+            logger.warning(
+                "Extractor %s returned non-dict result of type %s",
+                name,
+                type(result),
+            )
+            return {}
+        return result
+    except Exception as e:  # pragma: no cover
+        logger.error("Extractor %s failed: %s", name, e)
+        return {}
 
-    for kpi_code, item in new.items():
-        if kpi_code not in result:
-            result[kpi_code] = item
-            continue
 
-        if result[kpi_code].get("value") is None and item.get("value") is not None:
-            result[kpi_code] = item
+# -------------------------------------------------------------------
+# Main orchestration
+# -------------------------------------------------------------------
 
-    return result
-
-
-def extract_all_kpis(text: str, pdf_path: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
+def extract_all_kpis(
+    text: str,
+    pdf_path: Optional[str] = None,
+) -> Dict[str, ExtractorResultDict]:
     """
-    Unified orchestrator for KPI extraction.
-    Order of priority:
-    1. Regex extractor
-    2. NLP extractor
-    3. Table extractor (if PDF provided)
-    4. LLM extractor (fallback)
+    Run all extractors (regex, NLP, table, LLM), normalize, and fuse.
+    Returns Dict[str, ExtractorResultDict].
     """
-
+    logger.info("Starting combined KPI extraction…")
     cfg = load_config()
-    kpi_codes = list(cfg.universal_kpis.keys())
 
-    # Initialize result with empty structure
-    results = {
-        kpi: {"value": None, "unit": None}
-        for kpi in kpi_codes
-    }
+    kpi_schema = cfg.universal_kpis
+    kpi_codes: list[str] = list(kpi_schema.keys())
 
-    # 1 Regex extraction
-    regex_results = extract_kpis_regex(text)
-    results = merge_kpi_sources(results, regex_results)
+    # ---------------------------------------------------------
+    # Text-based extractors
+    # ---------------------------------------------------------
 
-    # 2 NLP extraction
-    nlp_results = extract_kpis_nlp(text)
-    results = merge_kpi_sources(results, nlp_results)
+    raw_regex: Dict[str, Any] = _safe_run_extractor("regex", extract_kpis_regex, text)
+    raw_nlp: Dict[str, Any] = _safe_run_extractor("nlp", extract_kpis_nlp, text)
 
-    # 3 Table extraction (only if PDF available)
-    if pdf_path is not None:
-        table_results = extract_kpis_from_tables(pdf_path)
-        results = merge_kpi_sources(results, table_results)
+    # Normalize into ExtractorResultDict (with units/value normalization)
+    regex_res: Dict[str, ExtractorResultDict] = normalize_kpis(raw_regex)
+    nlp_res: Dict[str, ExtractorResultDict] = normalize_kpis(raw_nlp)
 
-    # 4 LLM extraction (fallback)
-    llm_results = extract_kpis_llm(text)
-    results = merge_kpi_sources(results, llm_results)
+    # ---------------------------------------------------------
+    # Table engine
+    # ---------------------------------------------------------
 
-    return results
+    if pdf_path:
+        logger.info("Running unified table extraction engine…")
+        raw_table: Dict[str, Any] = extract_kpis_from_tables_unified(pdf_path, kpi_codes)
+    else:
+        raw_table = {
+            code: {
+                "value": None,
+                "unit": None,
+                "confidence": 0.0,
+                "source": [],
+                "raw_value": None,
+                "raw_unit": None,
+            }
+            for code in kpi_codes
+        }
+
+    table_res: Dict[str, ExtractorResultDict] = normalize_kpis(raw_table)
+
+    # ---------------------------------------------------------
+    # LLM extractor
+    # ---------------------------------------------------------
+
+    raw_llm: Dict[str, Any] = _safe_run_extractor("llm", extract_kpis_llm, text)
+    llm_res: Dict[str, ExtractorResultDict] = normalize_kpis(raw_llm)
+
+    # ---------------------------------------------------------
+    # Fusion
+    # ---------------------------------------------------------
+
+    logger.info("Fusing extractor outputs…")
+
+    final = fuse_all(
+        regex_res=regex_res,
+        nlp_res=nlp_res,
+        table_res=table_res,
+        llm_res=llm_res,
+        kpi_codes=kpi_codes,
+    )
+
+    logger.info("Fusion complete.")
+    logger.debug("Final extracted KPIs: %s", final)
+
+    return final
