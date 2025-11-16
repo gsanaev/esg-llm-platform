@@ -1,34 +1,97 @@
-# Raw input PDFs and outputs
-data/raw/*.pdf
-output.json
-
-# Python-generated files
-__pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
-
-# Virtual environments
-.venv/
-
-# Environment & secrets
-.env
-*.env
-.env.*
-
-# Logs and debug
-logs/
-*.log
-
-# Jupyter notebook state
-.ipynb_checkpoints/
-
-# Local data output
-data/processed/
-data/parsed/
-
-# OS-specific
+#############################
+# macOS system files
+#############################
 .DS_Store
-Thumbs.db
+*/.DS_Store
+**/.DS_Store
+
+
+#############################
+# Editor / IDE
+#############################
+
+# VSCode settings
+.vscode/
+
+# JetBrains (optional)
+.idea/
+
+
+#############################
+# Python / uv
+#############################
+
+# Byte-compiled
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual envs (in case)
+.venv/
+venv/
+env/
+
+# uv cache
+.uv/
+
+
+#############################
+# Environment variables
+#############################
+
+.env
+.env.*
+!.env.example
+
+
+#############################
+# Outputs / JSON results
+#############################
+
+# Any JSON output from pipelines or tests
+*.json
+!package.json     # keep if needed
+
+output_*.json
+out_*.json
+ms_v2.json
+
+
+#############################
+# Notebooks / Jupyter
+#############################
+
+notebooks/
+notebooks/v2/
+*.ipynb_checkpoints/
+*.ipynb
+
+
+#############################
+# Logs / temp
+#############################
+
+*.log
+*.tmp
+*.temp
+
+
+#############################
+# Data — raw ESG PDFs
+#############################
+
+# Ignore raw input reports
+data/raw/*.pdf
+
+# If you want to keep the folder itself:
+!data/raw/
+!data/raw/.keep
+
+
+#############################
+# Build artifacts
+#############################
+
+dist/
+build/
+*.egg-info/
