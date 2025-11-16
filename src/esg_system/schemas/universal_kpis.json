@@ -1,20 +1,19 @@
 {
   "total_ghg_emissions": {
-    "name": "Total GHG Emissions",
-    "description": "Total greenhouse gas emissions in CO2-equivalent.",
-    "unit": "tCO2e",
-    "category": "environment"
+    "display_name": "Total GHG Emissions",
+    "units": ["tCO2e", "tco2e", "TCOne", "tCOne"],
+    "keywords": ["total ghg", "greenhouse gas", "emissions"]
   },
+
   "energy_consumption": {
-    "name": "Energy Consumption",
-    "description": "Total energy consumed during the reporting period.",
-    "unit": "MWh",
-    "category": "environment"
+    "display_name": "Energy Consumption",
+    "units": ["MWh", "kWh", "GWh"],
+    "keywords": ["energy consumption", "energy use"]
   },
+
   "water_withdrawal": {
-    "name": "Water Withdrawal",
-    "description": "Total water withdrawn from all sources.",
-    "unit": "m3",
-    "category": "environment"
+    "display_name": "Water Withdrawal",
+    "units": ["m3", "m³", "cubic meters"],
+    "keywords": ["water withdrawal", "water use", "water extracted"]
   }
 }
