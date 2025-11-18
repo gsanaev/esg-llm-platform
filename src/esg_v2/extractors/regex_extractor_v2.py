@@ -1,29 +1,31 @@
+# src/esg_v2/extractors/regex_extractor_v2.py
 from __future__ import annotations
 
 import logging
 import re
+from functools import lru_cache
 from typing import Dict, Any, Mapping
 
 logger = logging.getLogger(__name__)
 
-# ------------------------------------------------------------
-# Build KPI-specific number–unit regex
-# ------------------------------------------------------------
 
-def _build_pattern_for_kpi(units: list[str]) -> re.Pattern:
+# =====================================================================
+# Cached regex builder
+# =====================================================================
+
+@lru_cache(maxsize=256)
+def _cached_pattern(units_key: str) -> re.Pattern:
     """
-    Return a regex that captures:
-        "123,400 tCO2e"
-        "1.2 million m3"
-        "500000 MWh"
-    The pattern is intentionally simple and stable.
+    Build a number+unit pattern and cache it.
+    units_key = "unit1||unit2||unit3"
     """
+    units = units_key.split("||")
     unit_regex = "|".join(re.escape(u) for u in units)
 
     number_like = r"""
         (?P<value>
-          [0-9][0-9,\.\s]*         # digits with commas / decimals / spaces
-          (?:million|thousand|k)?  # optional scale word (not interpreted yet)
+            [0-9][0-9,\.\s]*         # digits with separators
+            (?:million|thousand|k)?  # optional scale word
         )
     """
 
@@ -36,9 +38,14 @@ def _build_pattern_for_kpi(units: list[str]) -> re.Pattern:
     return re.compile(pattern, re.IGNORECASE | re.VERBOSE)
 
 
-# ------------------------------------------------------------
-# Main extractor (Phase 1 minimal version)
-# ------------------------------------------------------------
+def _get_pattern(units: list[str]) -> re.Pattern:
+    """Return cached full regex pattern for KPI units."""
+    return _cached_pattern("||".join(units))
+
+
+# =====================================================================
+# Main extractor (fully minimal)
+# =====================================================================
 
 def extract_kpis_regex_v2(
     text: str,
@@ -47,39 +54,33 @@ def extract_kpis_regex_v2(
     base_confidence: float = 0.6,
 ) -> Dict[str, Dict[str, Any]]:
     """
-    Phase 1 version:
-    - Simple number + unit matching
-    - Does NOT interpret or convert numbers
-    - Returns raw_value and raw_unit only
-    - One hit per KPI (first match)
-    - Uses universal_kpis.json ("units" only)
-
-    Reliable for esg_report_v1 / v2 / v3.
+    Minimal, stable regex extractor:
+    - Finds simple number + unit patterns
+    - No numeric interpretation here (normalizer handles it)
+    - Returns raw_value + raw_unit only
+    - Takes first match only (first-hit rule)
+    - Uses only schema['units']
     """
     results: Dict[str, Dict[str, Any]] = {}
 
-    # Normalize whitespace so that regex is not confused by newlines
-    cleaned = " ".join(text.split())
+    # Normalize whitespace to avoid regex failing across lines
+    cleaned = re.sub(r"\s+", " ", text)
 
     for kpi_code, meta in kpi_schema.items():
-        units = meta.get("units", [])
+        units = meta.get("units") or []
         if not units:
-            logger.warning("v2 regex extractor: KPI '%s' has no units; skipping", kpi_code)
+            # Quiet skip — some KPIs may not be regex-detectable
             continue
 
-        pattern = _build_pattern_for_kpi(units)
-        m = pattern.search(cleaned)
-
-        if not m:
+        pattern = _get_pattern(units)
+        match = pattern.search(cleaned)
+        if not match:
             continue
 
-        raw_value = m.group("value").strip()
-        raw_unit = m.group("unit").strip()
+        raw_value = match.group("value").strip()
+        raw_unit = match.group("unit").strip()
 
-        logger.info(
-            "v2 regex hit for %s: raw_value='%s', raw_unit='%s'",
-            kpi_code, raw_value, raw_unit
-        )
+        logger.info("regex_v2 hit %s: %s %s", kpi_code, raw_value, raw_unit)
 
         results[kpi_code] = {
             "raw_value": raw_value,
