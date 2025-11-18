@@ -1,3 +1,4 @@
+# src/esg_v2/normalization/regex_normalizer.py
 from __future__ import annotations
 
 import logging
@@ -89,26 +90,28 @@ def _normalize_unit(raw_unit: str, kpi_code: str, canonical_unit: str) -> Option
     """
     Returns: (canonical_unit, multiplier) or None if incompatible.
     """
-    u = raw_unit.strip().lower()
+    if not raw_unit:
+        return None
 
-    # Exact match (case-insensitive)
+    # Remove spaces and normalize
+    u = "".join(raw_unit.split()).lower().replace("³", "3")
+
+    # Exact match
     if u == canonical_unit.lower():
         return canonical_unit, 1.0
 
-    # Lookup in conversion table
+    # Conversion table
     if u in UNIT_CONVERSIONS:
         target_unit, mult = UNIT_CONVERSIONS[u]
-
-        # Only accept if conversion target matches KPI canonical unit
         if target_unit.lower() == canonical_unit.lower():
             return canonical_unit, mult
 
-    # No compatible conversion found
     logger.warning(
         "normalize_regex_result_v2: unsupported unit '%s' for KPI '%s' (base='%s')",
         raw_unit, kpi_code, canonical_unit
     )
     return None
+
 
 
 # -----------------------------------------------------------------------------
