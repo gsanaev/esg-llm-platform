@@ -1,13 +1,13 @@
-# src/esg_v2/tests/test_tables_v2.py
+# src/esg/tests/test_tables.py
 
 import json
 from pathlib import Path
 
-from esg_v2.extractors.table_extractor_v2 import extract_kpis_from_tables_v2
-from esg_v2.normalization.table_normalizer_v2 import normalize_table_result_v2
+from esg.extractors.table_plain_extractor import extract_kpis_tables_plain
+from esg.normalization.table_plain_normalizer import normalize_table_plain_result
 
 
-SCHEMA_PATH = Path("src/esg_system/schemas/universal_kpis.json")
+SCHEMA_PATH = Path("src/esg/schemas/universal_kpis.json")
 PDF_PATH = Path("data/raw/test_table_esg.pdf")
 
 
@@ -16,14 +16,14 @@ def load_kpis():
         return json.load(f)
 
 
-def test_table_v2_text_tables():
+def test_table_text_tables():
     kpi_schema = load_kpis()
 
     # Extract directly from PDF path
-    raw = extract_kpis_from_tables_v2(str(PDF_PATH), kpi_schema)
+    raw = extract_kpis_tables_plain(str(PDF_PATH), kpi_schema)
 
     # Normalize
-    normalized = normalize_table_result_v2(raw, kpi_schema)
+    normalized = normalize_table_plain_result(raw, kpi_schema)
 
     # Basic structure
     assert isinstance(normalized, dict)

@@ -3,12 +3,12 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-from esg_v2.extractors.llm_extractor_v2 import extract_kpis_llm_v2
-from esg_v2.normalization.llm_normalizer_v2 import normalize_llm_result_v2
+from esg.extractors.llm_extractor import extract_kpis_llm
+from esg.normalization.llm_normalizer import normalize_llm_result
 
 import os
 
-SCHEMA_PATH = Path("src/esg_system/schemas/universal_kpis.json")
+SCHEMA_PATH = Path("src/esg/schemas/universal_kpis.json")
 
 
 def load_kpis():
@@ -41,8 +41,8 @@ def mock_create(*args, **kwargs):
 def test_llm_extractor_and_normalizer():
     kpis = load_kpis()
 
-    raw = extract_kpis_llm_v2("dummy text", kpis)
-    norm = normalize_llm_result_v2(raw, kpis)
+    raw = extract_kpis_llm("dummy text", kpis)
+    norm = normalize_llm_result(raw, kpis)
 
     assert norm["total_ghg_emissions"]["value"] == 123400.0
     assert norm["total_ghg_emissions"]["unit"] == "tCO2e"

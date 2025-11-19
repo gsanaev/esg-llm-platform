@@ -2,10 +2,10 @@
 import json
 from pathlib import Path
 
-from esg_v2.extractors.table_extractor_v3 import extract_kpis_from_tables_v3
-from esg_v2.normalization.table_normalizer_v3 import normalize_table_result_v3
+from esg.extractors.table_grid_extractor import extract_kpis_tables_grid
+from esg.normalization.table_grid_normalizer import normalize_table_grid_result
 
-SCHEMA_PATH = Path("src/esg_system/schemas/universal_kpis.json")
+SCHEMA_PATH = Path("src/esg/schemas/universal_kpis.json")
 PDF_PATH = Path("data/raw/test_table_esg_grid_v3.pdf")
 
 
@@ -17,8 +17,8 @@ def load_kpis():
 def test_table_v3_grid_tables():
     kpis = load_kpis()
 
-    raw = extract_kpis_from_tables_v3(str(PDF_PATH), kpis)
-    normalized = normalize_table_result_v3(raw, kpis)
+    raw = extract_kpis_tables_grid(str(PDF_PATH), kpis)
+    normalized = normalize_table_grid_result(raw, kpis)
 
     assert "total_ghg_emissions" in normalized
     assert normalized["total_ghg_emissions"]["value"] in (123400.0, 123400)
