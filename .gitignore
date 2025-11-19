@@ -56,6 +56,9 @@ output_*.json
 out_*.json
 ms_v2.json
 
+# CSV export directory
+out/
+
 
 #############################
 # Notebooks / Jupyter
@@ -64,7 +67,7 @@ ms_v2.json
 notebooks/
 notebooks/v2/
 *.ipynb_checkpoints/
-*.ipynb
+# *.ipynb   ← removed to allow .ipynb files to be tracked
 
 
 #############################
