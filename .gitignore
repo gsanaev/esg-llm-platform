@@ -1,100 +1,84 @@
-#############################
+########################################
 # macOS system files
-#############################
+########################################
 .DS_Store
-*/.DS_Store
 **/.DS_Store
 
-
-#############################
+########################################
 # Editor / IDE
-#############################
-
-# VSCode settings
+########################################
 .vscode/
-
-# JetBrains (optional)
 .idea/
+*.swp
+*.swo
 
-
-#############################
-# Python / uv
-#############################
-
-# Byte-compiled
+########################################
+# Python / uv / virtual environments
+########################################
 __pycache__/
 *.py[cod]
 *.pyo
 
-# Virtual envs (in case)
 .venv/
 venv/
 env/
-
-# uv cache
 .uv/
 
-
-#############################
-# Environment variables
-#############################
-
+########################################
+# Environment variables (keep examples)
+########################################
 .env
 .env.*
 !.env.example
 
+########################################
+# Logs / temporary / cache
+########################################
+*.log
+*.tmp
+*.temp
+*.cache/
+.cache/
+tmp/
+temp/
 
-#############################
-# Outputs / JSON results
-#############################
+########################################
+# Jupyter Notebooks
+########################################
+# Do NOT ignore notebooks — we want them!
+*.ipynb_checkpoints/
 
-# Any JSON output from pipelines or tests
+########################################
+# Project data
+########################################
+# Ignore real PDF reports
+data/raw/*.pdf
+!data/raw/
+!data/raw/.keep
+
+# Output (pipeline exports)
+data/out/
+out/
+*.csv
 *.json
-!package.json     # keep if needed
-
 output_*.json
 out_*.json
 ms_v2.json
 
-# CSV export directory
-out/
+########################################
+# HTML exports
+########################################
+# If you want to KEEP exported HTML notebooks (recommended), comment these out
+# docs/*.html
 
-
-#############################
-# Notebooks / Jupyter
-#############################
-
-notebooks/
-notebooks/v2/
-*.ipynb_checkpoints/
-# *.ipynb   ← removed to allow .ipynb files to be tracked
-
-
-#############################
-# Logs / temp
-#############################
-
-*.log
-*.tmp
-*.temp
-
-
-#############################
-# Data — raw ESG PDFs
-#############################
-
-# Ignore raw input reports
-data/raw/*.pdf
-
-# If you want to keep the folder itself:
-!data/raw/
-!data/raw/.keep
-
-
-#############################
+########################################
 # Build artifacts
-#############################
-
+########################################
 dist/
 build/
 *.egg-info/
+
+########################################
+# OS / Misc
+########################################
+Thumbs.db
