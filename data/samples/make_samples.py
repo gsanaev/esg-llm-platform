@@ -1,6 +1,8 @@
+# data/samples/make_samples.py
 from __future__ import annotations
 
 import os
+import random
 from pathlib import Path
 from typing import List
 
@@ -13,31 +15,37 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from dotenv import load_dotenv
 load_dotenv()
 
+# ---------------------------------------------------------------------
+# Optional OpenAI import
+# ---------------------------------------------------------------------
 try:
     from openai import OpenAI
 except ImportError:
     OpenAI = None  # type: ignore
 
+# ---------------------------------------------------------------------
+# Global deterministic seed
+# ---------------------------------------------------------------------
+random.seed(42)
+
+# Enable/disable LLM-based PDFs for deterministic CI
+ENABLE_LLM_GENERATION = False
 
 # ---------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------
-
 THIS_FILE = Path(__file__).resolve()
-PROJECT_ROOT = THIS_FILE.parents[2]  # .../esg-llm-platform
+PROJECT_ROOT = THIS_FILE.parents[2]
 RAW_DIR = PROJECT_ROOT / "data" / "samples"
 RAW_DIR.mkdir(parents=True, exist_ok=True)
 
 styles = getSampleStyleSheet()
 H = styles["Heading1"]
-H2 = styles["Heading2"]
 P = styles["BodyText"]
 
-
 # ---------------------------------------------------------------------
-# Helpers
+# PDF Helpers
 # ---------------------------------------------------------------------
-
 def _doc(path: Path) -> SimpleDocTemplate:
     return SimpleDocTemplate(
         str(path),
@@ -48,12 +56,7 @@ def _doc(path: Path) -> SimpleDocTemplate:
         bottomMargin=2 * cm,
     )
 
-
 def _kpi_table(values) -> Table:
-    """
-    values should be a list of rows.
-    We’ll reuse similar structure to what your extractors expect.
-    """
     tbl = Table(values, hAlign="LEFT")
     tbl.setStyle(
         TableStyle(
@@ -68,60 +71,65 @@ def _kpi_table(values) -> Table:
     )
     return tbl
 
-
 def _locale_variants_row(label: str, base_unit: str) -> List[List[str]]:
-    """
-    Return several rows for the same KPI with different numeric formats.
-    """
     return [
-        [label + " (tCO2e)", "123,400"],         # US style comma
-        [label + " (tCO2e)", "123.400"],         # EU style dot
-        [label + " (tCO2e)", "123 400"],         # space
-        [label + " (tCO2e)", "1,200,000"],       # big number US
-        [label + " (tCO2e)", "1.200.000"],       # big number EU
-        [label + " (tCO2e)", "1 200 000"],       # big number space
+        [label + " (tCO2e)", "123,400"],
+        [label + " (tCO2e)", "123.400"],
+        [label + " (tCO2e)", "123 400"],
+        [label + " (tCO2e)", "1,200,000"],
+        [label + " (tCO2e)", "1.200.000"],
+        [label + " (tCO2e)", "1 200 000"],
     ]
 
-
 def _ocr_noise(text: str) -> str:
-    """
-    Introduce mild OCR-like noise: extra spaces, weird spacing, etc.
-    Nothing too crazy so extractors still have a chance.
-    """
     return (
         text.replace("GHG", "G H G")
         .replace("energy", "ene rgy")
         .replace("water", "wa  ter")
     )
 
-
 def _has_llm() -> bool:
     return bool(os.environ.get("OPENAI_API_KEY") and OpenAI is not None)
 
-
+# ---------------------------------------------------------------------
+# Deterministic LLM paragraph generator
+# ---------------------------------------------------------------------
 def _generate_llm_paragraphs(title: str, n_sections: int = 3) -> List[str]:
     """
-    Optional LLM text generator for more realistic ESG narrative.
-    If no key / no client, returns simple static text instead.
+    Deterministic LLM-based ESG text generator.
+    Falls back to static paragraphs if LLM disabled or not available.
     """
     static = [
         "This report presents a summary of the company's environmental performance over the last fiscal year.",
         "The company has continued to implement energy efficiency measures and decarbonisation initiatives.",
         "Water management remains a strategic priority, with a focus on reduced withdrawals in high-stress regions.",
     ]
-    if not _has_llm():
+
+    # If LLM disabled or API key unavailable, return static content
+    if not (ENABLE_LLM_GENERATION and _has_llm()):
         return static
 
+    seed = 42  # deterministic seed
     client = OpenAI()
+
     prompt = f"""
     You are writing a concise ESG report summary titled '{title}'.
+
+    Use the following deterministic seed for style and layout: {seed}
+
     Write {n_sections} short paragraphs (3–4 sentences each) describing:
-    - greenhouse gas emissions trends,
+    - greenhouse gas emissions,
     - energy consumption and efficiency measures,
     - water withdrawal and management.
 
-    Use realistic corporate ESG language.
-    Do NOT include bullet points or headings; just plain paragraphs.
+    Requirements:
+    - Use realistic corporate ESG language.
+    - Keep layout stable across runs.
+    - Do NOT use bullet points.
+    - Do NOT use headings.
+    - Produce deterministic text.
+
+    Return plain paragraphs separated by blank lines.
     """
 
     try:
@@ -131,29 +139,25 @@ def _generate_llm_paragraphs(title: str, n_sections: int = 3) -> List[str]:
                 {"role": "system", "content": "You are a professional ESG report writer."},
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.4,
+            temperature=0.0,
+            top_p=1.0,
             max_tokens=600,
         )
         content = resp.choices[0].message.content or ""
     except Exception:
-        # Fallback to static if anything fails
         return static
 
-    # Split into paragraphs by blank lines or double newline
     chunks = [p.strip() for p in content.split("\n\n") if p.strip()]
     return chunks[:n_sections] or static
 
-
 # ---------------------------------------------------------------------
-# Individual PDF generators
+# PDF Generators
 # ---------------------------------------------------------------------
-
 def make_esg_simple_text(path: Path) -> None:
     doc = _doc(path)
     story = []
 
     story.append(Paragraph("ESG Sample – Simple Text", H))
-
     story.append(
         Paragraph(
             "In 2024, the company reported total GHG emissions "
@@ -182,7 +186,6 @@ def make_esg_simple_text(path: Path) -> None:
 
     doc.build(story)
 
-
 def make_esg_simple_table(path: Path) -> None:
     doc = _doc(path)
     story = []
@@ -200,13 +203,11 @@ def make_esg_simple_table(path: Path) -> None:
     story.append(_kpi_table(data))
     doc.build(story)
 
-
 def make_esg_simple_mixed(path: Path) -> None:
     doc = _doc(path)
     story = []
 
     story.append(Paragraph("ESG Sample – Mixed Text + Table", H))
-
     story.append(
         Paragraph(
             "The following table summarises the company's core environmental KPIs "
@@ -223,19 +224,7 @@ def make_esg_simple_mixed(path: Path) -> None:
         ["Total water withdrawal (m3)", "", "1,200,000"],
     ]
     story.append(_kpi_table(data))
-
-    story.append(Spacer(1, 0.75 * cm))
-
-    story.append(
-        Paragraph(
-            "Performance improved compared to the previous year, "
-            "with a modest reduction in emissions intensity.",
-            P,
-        )
-    )
-
     doc.build(story)
-
 
 def make_esg_locale_numbers(path: Path) -> None:
     doc = _doc(path)
@@ -248,18 +237,7 @@ def make_esg_locale_numbers(path: Path) -> None:
     rows += _locale_variants_row("Total GHG emissions", "tCO2e")
 
     story.append(_kpi_table(rows))
-    story.append(Spacer(1, 0.75 * cm))
-
-    story.append(
-        Paragraph(
-            "These rows demonstrate various locale-specific number formats "
-            "for the same KPI. All refer to total GHG emissions (tCO2e).",
-            P,
-        )
-    )
-
     doc.build(story)
-
 
 def make_esg_messy_units(path: Path) -> None:
     doc = _doc(path)
@@ -275,18 +253,7 @@ def make_esg_messy_units(path: Path) -> None:
         ["Total water withdrawal", "m³", "1,200,000"],
     ]
     story.append(_kpi_table(data))
-
-    story.append(Spacer(1, 0.75 * cm))
-    story.append(
-        Paragraph(
-            "Units are intentionally formatted inconsistently (spaces, "
-            "superscripts) to exercise normalization logic.",
-            P,
-        )
-    )
-
     doc.build(story)
-
 
 def make_esg_unstructured_long(path: Path) -> None:
     doc = _doc(path)
@@ -298,25 +265,15 @@ def make_esg_unstructured_long(path: Path) -> None:
         (
             "Throughout the reporting year, the organisation advanced multiple "
             "initiatives aimed at decarbonising its operations. In 2024, "
-            "total GHG emissions (tCO2e) reached 123,400, reflecting a "
-            "modest change compared to the previous year."
+            "total GHG emissions (tCO2e) reached 123,400."
         ),
         (
-            "Energy consumption (MWh) remained relatively stable at 500,000, "
-            "with a gradual shift towards renewable electricity sourcing. "
-            "The company invested in energy efficiency measures in production "
-            "facilities and office locations."
+            "Energy consumption (MWh) remained relatively stable at 500,000 "
+            "with a gradual shift towards renewable electricity sourcing."
         ),
         (
             "Total water withdrawal (m3) amounted to 1,200,000, with ongoing "
-            "efforts to reduce abstraction from water-stressed regions. "
-            "Operational teams continue to monitor water performance "
-            "through site-level metrics and internal dashboards."
-        ),
-        (
-            "The narrative format and dispersed KPI references are intended "
-            "to test sentence-based extraction capabilities rather than "
-            "structured table logic."
+            "efforts to reduce abstraction from water-stressed regions."
         ),
     ]
 
@@ -326,11 +283,9 @@ def make_esg_unstructured_long(path: Path) -> None:
 
     doc.build(story)
 
-
 def make_esg_ocr_noise(path: Path) -> None:
     doc = _doc(path)
     story = []
-
     story.append(Paragraph("ESG Sample – OCR-like Noise", H))
 
     base = (
@@ -341,93 +296,107 @@ def make_esg_ocr_noise(path: Path) -> None:
     noisy = _ocr_noise(base)
 
     story.append(Paragraph(noisy, P))
-    story.append(Spacer(1, 0.5 * cm))
-
-    story.append(
-        Paragraph(
-            "This paragraph includes intentional spacing distortions to simulate OCR noise.",
-            P,
-        )
-    )
-
     doc.build(story)
-
 
 def make_esg_corrupted_table(path: Path) -> None:
     doc = _doc(path)
     story = []
 
     story.append(Paragraph("ESG Sample – Corrupted / Partial Table", H))
-    story.append(Spacer(1, 0.5 * cm))
 
     data = [
         ["KPI", "Unit", "2024"],
         ["Total GHG emissions (tCO2e)", "", "123,400"],
-        ["Total energy consumption", "", "500,000"],  # missing unit cell
-        ["Total water withdrawal (m3)", None, "1,200,000"],  # None unit
-        ["Other KPI", "N/A", ""],  # empty value
+        ["Total energy consumption", "", "500,000"],
+        ["Total water withdrawal (m3)", None, "1,200,000"],
+        ["Other KPI", "N/A", ""],
     ]
     story.append(_kpi_table(data))
+    doc.build(story)
 
-    story.append(Spacer(1, 0.75 * cm))
+def make_esg_nlp_test(path: Path) -> None:
+    """
+    Dedicated deterministic text PDF for NLP test.
+    Mirrors esg_report_v1.pdf content exactly.
+    """
+    doc = _doc(path)
+    story = []
+
+    story.append(Paragraph("Environmental, Social & Governance (ESG) Performance Summary — 2024", H))
+
+    text = (
+        "This simplified ESG report provides an overview of the company's environmental "
+        "performance for 2024. The information includes greenhouse gas emissions, energy "
+        "consumption, and water withdrawal metrics."
+    )
+    story.append(Paragraph(text, P))
+    story.append(Spacer(1, 0.4 * cm))
+
     story.append(
         Paragraph(
-            "Some cells are intentionally left blank or set to None to simulate "
-            "imperfect table extraction.",
+            "Our total GHG emissions for the reporting year amounted to 123,400 tCO2e.",
+            P,
+        )
+    )
+    story.append(Spacer(1, 0.3 * cm))
+
+    story.append(
+        Paragraph(
+            "Total energy consumption reached 500,000 MWh in 2024.",
+            P,
+        )
+    )
+    story.append(Spacer(1, 0.3 * cm))
+
+    story.append(
+        Paragraph(
+            "Total water withdrawal for the year totaled 1,200,000 m³.",
             P,
         )
     )
 
     doc.build(story)
-
 
 def make_esg_llm_realistic_1(path: Path) -> None:
     doc = _doc(path)
     story = []
-
     title = "ESG Sample – LLM Realistic Report 1"
-    story.append(Paragraph(title, H))
 
+    story.append(Paragraph(title, H))
     paragraphs = _generate_llm_paragraphs(title, n_sections=3)
+
     for p in paragraphs:
         story.append(Paragraph(p, P))
-        story.append(Spacer(1, 0.4 * cm))
+        story.append(Spacer(1, 0.3 * cm))
 
-    # Ensure KPIs appear explicitly at least once
     story.append(
         Paragraph(
-            "For clarity, key metrics for 2024 are: "
-            "total GHG emissions (tCO2e) 123,400; "
-            "total energy consumption (MWh) 500,000; "
-            "total water withdrawal (m3) 1,200,000.",
+            "For clarity, key metrics for 2024 are: total GHG emissions (tCO2e) 123,400; "
+            "total energy consumption (MWh) 500,000; total water withdrawal (m3) 1,200,000.",
             P,
         )
     )
 
     doc.build(story)
 
-
 def make_esg_llm_realistic_2(path: Path) -> None:
     doc = _doc(path)
     story = []
-
     title = "ESG Sample – LLM Realistic Report 2"
-    story.append(Paragraph(title, H))
 
+    story.append(Paragraph(title, H))
     paragraphs = _generate_llm_paragraphs(title, n_sections=4)
+
     for p in paragraphs:
         story.append(Paragraph(p, P))
-        story.append(Spacer(1, 0.4 * cm))
+        story.append(Spacer(1, 0.3 * cm))
 
     doc.build(story)
 
-
 # ---------------------------------------------------------------------
-# Main entrypoint
+# Main Entrypoint
 # ---------------------------------------------------------------------
-
 def main() -> None:
-    print(f"Project root: {PROJECT_ROOT}")
     print(f"Writing PDFs into: {RAW_DIR}")
 
     generators = [
@@ -439,29 +408,28 @@ def main() -> None:
         ("esg_unstructured_long.pdf", make_esg_unstructured_long),
         ("esg_ocr_noise.pdf", make_esg_ocr_noise),
         ("esg_corrupted_table.pdf", make_esg_corrupted_table),
+        ("esg_nlp_test.pdf", make_esg_nlp_test),
     ]
 
+    # Generate deterministic non-LLM PDFs
     for filename, fn in generators:
-        path = RAW_DIR / filename
         print(f"Generating {filename} ...")
-        fn(path)
+        fn(RAW_DIR / filename)
 
-    # LLM-based ones (optional)
-    if _has_llm():
-        print("OPENAI_API_KEY detected – generating LLM-based PDFs...")
+    # LLM-based PDFs (optional)
+    if ENABLE_LLM_GENERATION and _has_llm():
+        print("LLM enabled — generating LLM-based PDFs...")
         llm_generators = [
             ("esg_llm_realistic_1.pdf", make_esg_llm_realistic_1),
             ("esg_llm_realistic_2.pdf", make_esg_llm_realistic_2),
         ]
         for filename, fn in llm_generators:
-            path = RAW_DIR / filename
             print(f"Generating {filename} ...")
-            fn(path)
+            fn(RAW_DIR / filename)
     else:
-        print("No OPENAI_API_KEY found – skipping LLM-based PDFs.")
+        print("Skipping LLM-based PDFs (no API key or disabled).")
 
     print("Done.")
-
 
 if __name__ == "__main__":
     main()
