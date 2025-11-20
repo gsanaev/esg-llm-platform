@@ -87,7 +87,7 @@ def extract_kpis_nlp(
     text: str,
     kpi_schema: Mapping[str, Any],
     *,
-    base_confidence: float = 0.65,
+    base_confidence: float = 0.40,   # LOWER NLP confidence
 ) -> Dict[str, Dict[str, Any]]:
     """
     Lightweight NLP extractor that:
@@ -97,7 +97,7 @@ def extract_kpis_nlp(
          for a `<number> <unit>` match.
       4. Returns raw_value, raw_unit, and confidence.
 
-    Output shape matches regex_extractor exactly.
+    NLP is intentionally weak and conservative.
     """
     sentences = _split_into_sentences(text)
     if not sentences:
@@ -122,39 +122,95 @@ def extract_kpis_nlp(
         if not synonyms:
             continue
 
-        pattern = _get_pattern_for_units(units)
+        # Pattern A: <value><unit>
+        pattern_with_unit = _get_pattern_for_units(units)
 
-        # Scan sentences for a synonym mention
+        # Pattern B: value only (very weak)
+        pattern_value_only = re.compile(
+            r"(?P<value>[0-9][0-9,\.\s]*(?:million|thousand|k)?)",
+            re.IGNORECASE,
+        )
+
+        # Scan sentences
         for i, sent_lower in enumerate(lowered):
             if not any(syn in sent_lower for syn in synonyms):
                 continue
 
-            # Build sentence window: current + next sentence
+            # Window: current + next sentence
             window = sentences[i]
             if i + 1 < len(sentences):
                 window += " " + sentences[i + 1]
 
             window = re.sub(r"\s+", " ", window)
 
-            m = pattern.search(window)
-            if not m:
+            # Normalize PDF weird spaces (NBSP and similar)
+            window = window.replace("\u00A0", " ")
+            window = window.replace("\u202F", " ")
+            window = window.replace("\u2007", " ")
+            window = window.replace("\u2060", " ")
+
+            # ---------- STRONG MATCH: value+unit ----------
+            m = pattern_with_unit.search(window)
+            if m:
+                raw_value = m.group("value").strip()
+                raw_unit = m.group("unit").strip()
+
+                logger.info(
+                    "nlp hit %s (with unit): raw_value='%s', raw_unit='%s'",
+                    code, raw_value, raw_unit
+                )
+
+                results[code] = {
+                    "raw_value": raw_value,
+                    "raw_unit": raw_unit,
+                    "confidence": base_confidence + 0.15,  # boost strong match
+                }
+                break
+
+            # ---------- WEAK MATCH: value only ----------
+            # Only allow weak match if the window contains at least one expected unit
+            # (prevent matching the first KPI number in unrelated context sentences)
+            if not any(u.lower() in window.lower() for u in units):
                 continue
 
-            raw_value = m.group("value").strip()
-            raw_unit = m.group("unit").strip()
+            m2 = pattern_value_only.search(window)
+            if not m2:
+                continue
+
+            raw_value = m2.group("value").strip()
+
+            # ---- Reject junk patterns ----
+
+            # Reject values ending with a comma: "500,000,"
+            if raw_value.endswith(","):
+                continue
+
+            # Reject years
+            try:
+                v = float(raw_value.replace(",", ""))
+                if 1000 <= v <= 2100:
+                    continue
+            except Exception:
+                pass
+
+            # Reject tiny numbers (< 100)
+            try:
+                v = float(raw_value.replace(",", ""))
+                if v < 100:
+                    continue
+            except Exception:
+                pass
 
             logger.info(
-                "nlp hit %s: raw_value='%s', raw_unit='%s'",
-                code, raw_value, raw_unit
+                "nlp hit %s (value only): raw_value='%s'",
+                code, raw_value
             )
 
             results[code] = {
                 "raw_value": raw_value,
-                "raw_unit": raw_unit,
-                "confidence": base_confidence,
+                "raw_unit": None,
+                "confidence": base_confidence,  # very weak match
             }
-
-            # First-hit rule for each KPI
             break
 
     return results

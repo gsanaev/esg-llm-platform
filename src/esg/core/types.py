@@ -17,4 +17,5 @@ class KPIResult:
     value: Optional[float]
     unit: Optional[str]
     confidence: float
-    source: List[str]  # e.g. ["regex", "table_fitz"]
+    source: List[str]        # e.g. ["regex", "table_fitz"]
+    status: Optional[str] = None   # <--- ADD THIS

@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any, Dict, Mapping
 
 from esg.utils.numeric_parser import parse_locale_number
+from esg.normalization.scoring import compute_extraction_score
 
 
 def _norm_unit(u: str) -> str:
@@ -59,12 +60,24 @@ def normalize_table_plain_result(
         if unit is None and len(allowed_units) == 1:
             unit = allowed_units[0]
 
-        normalized[code] = {
+        normalized_entry = {
             "raw_value": raw_value,
             "raw_unit": raw_unit,
             "value": value,
             "unit": unit,
             "confidence": confidence,
         }
+
+        normalized_entry["_score"] = compute_extraction_score(
+            parsed_value=value,
+            raw_value=raw_value,
+            unit=unit,
+            allowed_units=allowed_units,
+            base_confidence=confidence,
+            source="table_plain",
+        )
+
+        normalized[code] = normalized_entry
+
 
     return normalized

@@ -1,3 +1,4 @@
+# src/esg/pipeline/pipeline.py
 from __future__ import annotations
 
 import logging
@@ -28,12 +29,15 @@ logger = logging.getLogger(__name__)
 
 
 # ----------------------------------------------------------
-# Fusion priority (deterministic only):
-#   table_grid → table_plain → regex → nlp
+# Score-based deterministic fusion
 #
-# LLM is handled *separately* as a final backfill step,
-# and never overwrites an existing value.
+# Rules:
+#   1. Deterministic extractors compete by score
+#   2. Hard priority used only as tie-breaker:
+#        table_grid > table_plain > regex > nlp
+#   3. LLM handled separately & never overwrites filled values
 # ----------------------------------------------------------
+
 def fuse_all_sources(
     regex_norm: Mapping[str, Any],
     table_grid_norm: Mapping[str, Any],
@@ -45,45 +49,57 @@ def fuse_all_sources(
 
     fused: Dict[str, Dict[str, Any]] = {}
 
+    # Deterministic priority (tie-break only)
+    PRIORITY_ORDER = {
+        "table_grid": 4,
+        "table_plain": 3,
+        "regex": 2,
+        "nlp": 1,
+    }
+
     for code in kpi_codes:
-        best = None
+        candidates = []
 
-        v3 = table_grid_norm.get(code)
-        v2 = table_plain_norm.get(code)
-        rx = regex_norm.get(code)
-        ll = llm_norm.get(code)
-        nl = nlp_norm.get(code)
+        # Collect candidates if present
+        for src_name, src_dict in [
+            ("table_grid", table_grid_norm),
+            ("table_plain", table_plain_norm),
+            ("regex", regex_norm),
+            ("nlp", nlp_norm),
+        ]:
+            entry = src_dict.get(code)
+            if entry:
+                score = entry.get("_score", {}).get("score", 0.0)
+                candidates.append({
+                    "source": src_name,
+                    "entry": entry,
+                    "score": score,
+                    "priority": PRIORITY_ORDER[src_name],
+                })
 
-        # Priority 1: table
-        if v3:
-            best = {**v3, "source": ["table_grid"]}
-
-        # Priority 2: table
-        elif v2:
-            best = {**v2, "source": ["table_plain"]}
-
-        # Priority 3: regex
-        elif rx:
-            best = {**rx, "source": ["regex"]}
-
-        # Priority 4: LLM
-        elif ll:
-            best = {**ll, "source": ["llm"]}
-
-        # Priority 5: NLP
-        elif nl:
-            best = {**nl, "source": ["nlp"]}
-
-        # Priority 6: no data anywhere
-        else:
-            best = {
+        # If nothing extracted at all → leave empty
+        if not candidates:
+            fused[code] = {
                 "value": None,
                 "unit": None,
                 "confidence": 0.0,
                 "source": [],
+                "status": "Not Reported",
             }
+            continue
 
-        fused[code] = best
+
+        # Sort by score first, then deterministic priority
+        best = sorted(
+            candidates,
+            key=lambda c: (c["score"], c["priority"]),
+            reverse=True
+        )[0]
+
+        fused[code] = {
+            **best["entry"],
+            "source": [best["source"]],
+        }
 
     return fused
 
@@ -195,6 +211,7 @@ class ESGPipelineV2:
                     unit=entry.get("unit"),
                     confidence=float(entry.get("confidence", 0.0)),
                     source=entry.get("source") or [],
+                    status=entry.get("status", "Not Reported"),
                 )
             )
 

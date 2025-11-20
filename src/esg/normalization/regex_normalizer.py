@@ -5,6 +5,8 @@ import logging
 from typing import Dict, Any, Mapping, Optional
 
 from esg.utils.numeric_parser import parse_scaled_number
+from esg.normalization.scoring import compute_extraction_score
+
 
 logger = logging.getLogger(__name__)
 
@@ -133,21 +135,50 @@ def normalize_regex_result(
                 raw_value,
                 kpi_code,
             )
-            out[kpi_code] = {
+            normalized_entry = {
                 **entry,
                 "value": None,
                 "unit": canonical_unit,
             }
+
+            base_conf = float(entry.get("confidence", 0.6))
+
+            normalized_entry["_score"] = compute_extraction_score(
+                parsed_value=None,
+                raw_value=raw_value,
+                unit=canonical_unit,
+                allowed_units=units,
+                base_confidence=base_conf,
+                source="regex",
+            )
+
+            out[kpi_code] = normalized_entry
             continue
 
+            
         # --- Unit normalization & conversion ---
         unit, factor = _normalize_unit(raw_unit, canonical_unit)
         final_value = value * factor
 
-        out[kpi_code] = {
+        normalized_entry = {
             **entry,
             "value": final_value,
             "unit": unit,
         }
+
+        # Confidence is already inside `entry["confidence"]`
+        base_conf = float(entry.get("confidence", 0.6))
+
+        normalized_entry["_score"] = compute_extraction_score(
+            parsed_value=final_value,
+            raw_value=raw_value,
+            unit=unit,
+            allowed_units=units,
+            base_confidence=base_conf,
+            source="regex",
+        )
+
+        out[kpi_code] = normalized_entry
+
 
     return out

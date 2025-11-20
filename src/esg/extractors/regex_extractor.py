@@ -10,72 +10,102 @@ logger = logging.getLogger(__name__)
 
 
 # =====================================================================
-# Cached regex builder
+# Cached regex builder (value-first)
 # =====================================================================
 
 @lru_cache(maxsize=256)
-def _cached_pattern(units_key: str) -> re.Pattern:
-    """
-    Build and cache a number+unit pattern.
-
-    Parameters
-    ----------
-    units_key:
-        String key joining unit tokens, e.g. "tCO2e||m3||MWh".
-
-    Returns
-    -------
-    re.Pattern
-        Compiled regex with groups:
-            - 'value': the numeric-like part (with optional scale word)
-            - 'unit' : the matched unit token
-    """
-    # Split back into units (they are joined with "||")
+def _pattern_value_first(units_key: str) -> re.Pattern:
     units = [u for u in units_key.split("||") if u]
-
-    # Safety: if somehow empty, compile a pattern that never matches
     if not units:
         return re.compile(r"(?!x)x")
 
-    # Deduplicate units to avoid redundant branches
-    units = list(dict.fromkeys(units))
-
     unit_regex = "|".join(re.escape(u) for u in units)
 
-    # Numeric-like token with optional scale word
-    number_like = r"""
-        (?P<value>
-            [0-9][0-9,\.\s]*         # digits with separators
-            (?:million|thousand|k)?  # optional scale word
-        )
-    """
-
     pattern = rf"""
-        {number_like}
+        (?P<value>[0-9][0-9,\.\s]*(?:million|thousand|k)?)
         \s*
         (?P<unit>{unit_regex})
     """
-
     return re.compile(pattern, re.IGNORECASE | re.VERBOSE)
 
 
-def _get_pattern(units: list[str]) -> re.Pattern:
-    """
-    Return cached full regex pattern for a list of units.
+# =====================================================================
+# Pattern B: "(unit) value"
+# =====================================================================
 
-    Parameters
-    ----------
-    units:
-        List of unit strings exactly as they appear in text
-        (e.g. ["tCO2e", "m³"]).
-    """
-    # Join with a separator that will not appear inside units
-    units_key = "||".join(units)
-    return _cached_pattern(units_key)
+def _pattern_paren_unit_first(units: list[str]) -> re.Pattern:
+    unit_regex = "|".join(re.escape(u) for u in units)
+
+    return re.compile(
+        rf"""\(
+                (?P<unit>{unit_regex})
+            \)
+            \s*(?:of|is|=|:)?\s*
+            (?P<value>[0-9][0-9,\.\s]*(?:million|thousand|k)?)
+        """,
+        re.IGNORECASE | re.VERBOSE
+    )
 
 
 # =====================================================================
-# Main extractor (minimal, stable)
+# Pattern C: "unit value" (NO parentheses)
+# =====================================================================
+
+def _pattern_unit_first(units: list[str]) -> re.Pattern:
+    """
+    Matches: "tCO2e 123,400" but avoids matching inside e.g. "(tCO2e)"
+    """
+    unit_regex = "|".join(re.escape(u) for u in units)
+
+    return re.compile(
+        rf"""
+            (?<!\()                      # cannot be inside parentheses
+            (?P<unit>{unit_regex})
+            \s*
+            (?P<value>[0-9][0-9,\.\s]*(?:million|thousand|k)?)
+        """,
+        re.IGNORECASE | re.VERBOSE
+    )
+
+# =====================================================================
+# Pattern D: "(unit) ... value" within max window (120 chars)
+# =====================================================================
+
+def _pattern_paren_unit_near_value(units: list[str], max_window: int = 120) -> re.Pattern:
+    """
+    Matches cases like:
+        "(tCO2e) ... was 123,400"
+        "(MWh) ... amounted to 500,000,"
+        "(m3) ... is around 1,200,000."
+    where the distance between ')' and the value is <= max_window characters.
+
+    Trailing punctuation after the value is allowed.
+    """
+    unit_regex = "|".join(re.escape(u) for u in units)
+
+    return re.compile(
+        rf"""
+            \(
+                (?P<unit>{unit_regex})
+            \)
+            (?P<middle>.{{0,{max_window}}}?)        # up to 120 chars
+            (?P<value>[0-9][0-9,\.\s]*(?:million|thousand|k)?)
+            \s*[,;.]?                                # optional trailing punctuation
+        """,
+        re.IGNORECASE | re.VERBOSE
+    )
+
+
+# =====================================================================
+# Public getter for pattern A
+# =====================================================================
+
+def _get_pattern_value_first(units: list[str]) -> re.Pattern:
+    return _pattern_value_first("||".join(units))
+
+
+# =====================================================================
+# Main extractor
 # =====================================================================
 
 def extract_kpis_regex(
@@ -84,52 +114,60 @@ def extract_kpis_regex(
     *,
     base_confidence: float = 0.6,
 ) -> Dict[str, Dict[str, Any]]:
-    """
-    Minimal, stable regex extractor.
 
-    Responsibilities:
-    - Find simple "<number> <unit>" patterns in plain text.
-    - Do *not* interpret/convert numbers (normalizer handles that).
-    - Return:
-        {
-            kpi_code: {
-                "raw_value": str,
-                "raw_unit": str,
-                "confidence": float,
-            },
-            ...
-        }
-    - Enforce a first-hit rule: only the *first* occurrence per KPI.
-    - Use only the 'units' field from the KPI schema.
-    """
     results: Dict[str, Dict[str, Any]] = {}
-
     if not text:
         return results
 
-    # Normalize whitespace so patterns are not broken by newlines
     cleaned = re.sub(r"\s+", " ", text)
 
-    for kpi_code, meta in kpi_schema.items():
-        # Pull unit list from schema; skip KPIs without units
+    for code, meta in kpi_schema.items():
         units = meta.get("units") or []
         if not units:
             continue
 
-        pattern = _get_pattern(units)
-        match = pattern.search(cleaned)
-        if not match:
+        # Build 3 patterns
+        pA = _get_pattern_value_first(units)
+        pB = _pattern_paren_unit_first(units)
+        pC = _pattern_unit_first(units)
+
+        # Try A: "<value> <unit>"
+        mA = pA.search(cleaned)
+        if mA:
+            v = mA.group("value").strip()
+            u = mA.group("unit").strip()
+            logger.info("regex hit %s (A value-unit): %s %s", code, v, u)
+            results[code] = {"raw_value": v, "raw_unit": u, "confidence": base_confidence}
             continue
 
-        raw_value = match.group("value").strip()
-        raw_unit = match.group("unit").strip()
+        # Try B: "(<unit>) <value>"
+        mB = pB.search(cleaned)
+        if mB:
+            v = mB.group("value").strip()
+            u = mB.group("unit").strip()
+            logger.info("regex hit %s (B paren-unit-value): (%s) %s", code, u, v)
+            results[code] = {"raw_value": v, "raw_unit": u, "confidence": base_confidence}
+            continue
 
-        logger.info("regex hit %s: %s %s", kpi_code, raw_value, raw_unit)
+        # Try C: "<unit> <value>" (no parentheses)
+        mC = pC.search(cleaned)
+        if mC:
+            v = mC.group("value").strip()
+            u = mC.group("unit").strip()
+            logger.info("regex hit %s (C unit-value): %s %s", code, u, v)
+            results[code] = {"raw_value": v, "raw_unit": u, "confidence": base_confidence}
+            continue
 
-        results[kpi_code] = {
-            "raw_value": raw_value,
-            "raw_unit": raw_unit,
-            "confidence": base_confidence,
-        }
+
+        # Try D: "(<unit>) ... <value>" (window-limited)
+        pD = _pattern_paren_unit_near_value(units, max_window=120)
+        mD = pD.search(cleaned)
+        if mD:
+            v = mD.group("value").strip().rstrip(".,;")
+            u = mD.group("unit").strip()
+            logger.info("regex hit %s (D paren-unit-near-value): (%s) ... %s", code, u, v)
+            results[code] = {"raw_value": v, "raw_unit": u, "confidence": base_confidence}
+            continue
+
 
     return results

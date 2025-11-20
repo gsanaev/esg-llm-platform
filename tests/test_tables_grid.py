@@ -1,4 +1,4 @@
-# tests/test_tables_v3.py
+# tests/test_tables_grid.py
 import json
 from pathlib import Path
 
@@ -6,7 +6,7 @@ from esg.extractors.table_grid_extractor import extract_kpis_tables_grid
 from esg.normalization.table_grid_normalizer import normalize_table_grid_result
 
 SCHEMA_PATH = Path("src/esg/schemas/universal_kpis.json")
-PDF_PATH = Path("data/raw/test_table_esg_grid_v3.pdf")
+PDF_PATH = Path("data/samples/esg_simple_table.pdf")   # updated
 
 
 def load_kpis():
@@ -22,10 +22,7 @@ def test_table_v3_grid_tables():
 
     assert "total_ghg_emissions" in normalized
     assert normalized["total_ghg_emissions"]["value"] in (123400.0, 123400)
-
     assert "energy_consumption" in normalized
     assert normalized["energy_consumption"]["value"] == 500000.0
-
     assert "water_withdrawal" in normalized
     assert normalized["water_withdrawal"]["value"] == 1200000.0
-

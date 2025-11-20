@@ -5,6 +5,8 @@ import logging
 from typing import Any, Dict, Mapping, Optional
 
 from esg.utils.numeric_parser import parse_locale_number
+from esg.normalization.scoring import compute_extraction_score
+
 
 logger = logging.getLogger(__name__)
 
@@ -85,12 +87,25 @@ def normalize_table_grid_result(
         if unit is None and value is not None and allowed_units:
             unit = allowed_units[0]
 
-        normalized[code] = {
+        normalized_entry = {
             "raw_value": raw_value,
             "raw_unit": raw_unit,
             "value": value,
             "unit": unit,
             "confidence": confidence,
         }
+
+        # Internal score for debugging / analysis (does not affect confidence)
+        normalized_entry["_score"] = compute_extraction_score(
+            parsed_value=value,
+            raw_value=raw_value,
+            unit=unit,
+            allowed_units=allowed_units,
+            base_confidence=confidence,
+            source="table_grid",
+        )
+
+        normalized[code] = normalized_entry
+
 
     return normalized

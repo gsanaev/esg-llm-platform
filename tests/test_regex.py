@@ -1,5 +1,4 @@
-# src/esg/tests/test_regex.py
-
+# tests/test_regex.py
 import json
 from pathlib import Path
 
@@ -9,7 +8,7 @@ from esg.utils.pdf_reader import extract_text
 
 
 SCHEMA_PATH = Path("src/esg/schemas/universal_kpis.json")
-PDF_PATH = Path("data/raw/esg_report_v1.pdf")
+PDF_PATH = Path("data/samples/esg_simple_text.pdf")   # updated
 
 
 def load_kpis():
@@ -24,15 +23,9 @@ def test_regex_basic_extraction():
     raw = extract_kpis_regex(text, kpi_schema)
     normalized = normalize_regex_result(raw, kpi_schema)
 
-    # Basic structure checks
     assert isinstance(normalized, dict)
 
     for code, result in normalized.items():
-        # Value field should exist
         assert "value" in result
-
-        # If extraction exists → value must be a float or None
         assert isinstance(result["value"], (float, type(None)))
-
-        # Unit field should exist (may be None if PDF has no matching unit)
         assert "unit" in result

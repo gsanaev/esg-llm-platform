@@ -2,8 +2,8 @@
 from pathlib import Path
 from esg.pipeline.pipeline import run_pipeline
 
-PDF_TABLE = Path("data/raw/test_table_esg_grid_v3.pdf")
-PDF_NLP_ONLY = Path("data/raw/esg_report_v1.pdf")  # contains text but no v3/v2 tables
+PDF_TABLE = Path("data/samples/esg_simple_table.pdf")   # updated
+PDF_NLP_ONLY = Path("data/samples/esg_simple_text.pdf") # updated
 
 
 def test_pipeline_end_to_end():
@@ -21,10 +21,6 @@ def test_pipeline_end_to_end():
 
 
 def test_pipeline_with_nlp_fallback():
-    """
-    Ensures that if table_v3, table, and regex fail,
-    NLP still extracts the KPIs.
-    """
     results = run_pipeline(str(PDF_NLP_ONLY))
 
     by_code = {r.code: r for r in results}
@@ -32,10 +28,6 @@ def test_pipeline_with_nlp_fallback():
 
     ghg = by_code["total_ghg_emissions"]
 
-    # Since this PDF still contains regex hits, regex should win.
-    # But NLP must at least produce output in the normalized structure.
     assert ghg.value == 123400.0
     assert ghg.unit.lower() in ("tco2e", "tco2e")
-
-    # source must be one of:
     assert ghg.source in (["regex"], ["nlp"], ["table"], ["table_v3"])

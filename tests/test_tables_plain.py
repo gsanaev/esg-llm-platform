@@ -1,5 +1,4 @@
-# src/esg/tests/test_tables.py
-
+# tests/test_tables_plain.py
 import json
 from pathlib import Path
 
@@ -8,7 +7,7 @@ from esg.normalization.table_plain_normalizer import normalize_table_plain_resul
 
 
 SCHEMA_PATH = Path("src/esg/schemas/universal_kpis.json")
-PDF_PATH = Path("data/raw/test_table_esg.pdf")
+PDF_PATH = Path("data/samples/esg_simple_mixed.pdf")
 
 
 def load_kpis():
@@ -18,20 +17,13 @@ def load_kpis():
 
 def test_table_text_tables():
     kpi_schema = load_kpis()
-
-    # Extract directly from PDF path
     raw = extract_kpis_tables_plain(str(PDF_PATH), kpi_schema)
-
-    # Normalize
     normalized = normalize_table_plain_result(raw, kpi_schema)
 
-    # Basic structure
     assert isinstance(normalized, dict)
     assert "total_ghg_emissions" in normalized
 
-    # Validate the example table entry
     ghg = normalized["total_ghg_emissions"]
-
     assert ghg["value"] == 123400.0
     assert ghg["unit"] == "tCO2e"
     assert ghg["confidence"] == 0.85
