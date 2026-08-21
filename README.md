@@ -88,8 +88,7 @@ esg-llm-platform/
 │
 ├── tests/                    # deterministic test suite
 ├── README.md
-├── pyproject.toml
-└── main.py
+└── pyproject.toml
 ```
 
 ---
@@ -141,12 +140,12 @@ uv sync
 
 ### Run pipeline
 ```bash
-python main.py --pdf data/samples/esg_simple_text.pdf
+uv run esg-extract data/samples/esg_simple_text.pdf
 ```
 
 ### Run test suite
 ```bash
-pytest -q
+uv run pytest -q
 ```
 
 ### Recreate synthetic PDFs (optional)
