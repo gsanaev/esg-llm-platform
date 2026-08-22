@@ -53,6 +53,8 @@ def _is_table_plain_like(line: str) -> bool:
 def _parse_table_plain_text(
     text: str,
     kpi_schema: Mapping[str, Any],
+    *,
+    page_number: int | None = None,
 ) -> Dict[str, Dict[str, Any]]:
     """
     Parse extracted plaintext tables and detect KPI rows using:
@@ -124,6 +126,8 @@ def _parse_table_plain_text(
                 "raw_value": raw_value,
                 "raw_unit": raw_unit,
                 "confidence": 0.85,
+                "page": page_number,
+                "source_context": line,
             }
 
             logger.info(
@@ -156,15 +160,33 @@ def extract_kpis_tables_plain(
         return {}
 
     # Try to extract plain text from all PDF pages
+    aggregated: Dict[str, Dict[str, Any]] = {}
+
     try:
         with pdfplumber.open(pdf_path) as pdf:
-            pages = [page.extract_text() or "" for page in pdf.pages]
+            for page_number, page in enumerate(pdf.pages, start=1):
+                page_text = page.extract_text() or ""
+
+                if not page_text.strip():
+                    continue
+
+                hits = _parse_table_plain_text(
+                    page_text,
+                    kpi_schema,
+                    page_number=page_number,
+                )
+
+                # Preserve existing first-hit behavior across the document
+                for code, entry in hits.items():
+                    if code not in aggregated:
+                        aggregated[code] = entry
+
     except Exception as exc:
-        logger.warning("table_plain: pdfplumber failed for %s: %s", pdf_path, exc)
+        logger.warning(
+            "table_plain: pdfplumber failed for %s: %s",
+            pdf_path,
+            exc,
+        )
         return {}
 
-    full_text = "\n".join(pages).strip()
-    if not full_text:
-        return {}
-
-    return _parse_table_plain_text(full_text, kpi_schema)
+    return aggregated

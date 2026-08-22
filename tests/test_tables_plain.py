@@ -18,6 +18,12 @@ def load_kpis():
 def test_table_text_tables():
     kpi_schema = load_kpis()
     raw = extract_kpis_tables_plain(str(PDF_PATH), kpi_schema)
+    ghg_raw = raw["total_ghg_emissions"]
+
+    assert ghg_raw["page"] == 1
+    assert ghg_raw["source_context"]
+    assert "123" in ghg_raw["source_context"]
+
     normalized = normalize_table_plain_result(raw, kpi_schema)
 
     assert isinstance(normalized, dict)

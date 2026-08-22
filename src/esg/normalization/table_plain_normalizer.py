@@ -67,6 +67,8 @@ def normalize_table_plain_result(
             "value": value,
             "unit": unit,
             "confidence": confidence,
+            "page": entry.get("page"),
+            "source_context": entry.get("source_context"),
         }
 
         normalized_entry["_score"] = compute_extraction_score(
