@@ -37,6 +37,8 @@ def normalized_results_to_evidence(
                 unit_raw=entry.get("raw_unit"),
                 unit_normalized=entry.get("unit"),
                 extraction_score=score_data.get("score"),
+                page=entry.get("page"),
+                source_context=entry.get("source_context"),
             )
         )
 

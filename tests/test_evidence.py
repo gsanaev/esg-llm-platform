@@ -9,6 +9,8 @@ def test_normalized_result_becomes_evidence_candidate():
             "value": 1_200_000.0,
             "unit": "m3",
             "_score": {"score": 0.72},
+            "page": 7,
+            "source_context": "Water Withdrawal | m³ | 1.2 million",
         }
     }
 
@@ -31,8 +33,8 @@ def test_normalized_result_becomes_evidence_candidate():
     assert candidate.extraction_method == "regex"
     assert candidate.extraction_score == 0.72
 
-    assert candidate.page is None
-    assert candidate.source_context is None
+    assert candidate.page == 7
+    assert candidate.source_context == "Water Withdrawal | m³ | 1.2 million"
 
 
 def test_unparsed_observation_is_still_preserved_as_evidence():

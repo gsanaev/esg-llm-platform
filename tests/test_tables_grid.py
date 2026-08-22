@@ -18,8 +18,12 @@ def test_table_v3_grid_tables():
     kpis = load_kpis()
 
     raw = extract_kpis_tables_grid(str(PDF_PATH), kpis)
+    ghg_raw = raw["total_ghg_emissions"]
     normalized = normalize_table_grid_result(raw, kpis)
 
+    assert ghg_raw["page"] == 1
+    assert ghg_raw["source_context"]
+    assert "123" in ghg_raw["source_context"]
     assert "total_ghg_emissions" in normalized
     assert normalized["total_ghg_emissions"]["value"] in (123400.0, 123400)
     assert "energy_consumption" in normalized

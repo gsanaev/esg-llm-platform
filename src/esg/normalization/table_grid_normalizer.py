@@ -94,6 +94,8 @@ def normalize_table_grid_result(
             "value": value,
             "unit": unit,
             "confidence": confidence,
+            "page": entry.get("page"),
+            "source_context": entry.get("source_context"),
         }
 
         # Internal score for debugging / analysis (does not affect confidence)

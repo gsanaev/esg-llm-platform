@@ -118,6 +118,8 @@ def _extract_table_grid(
     rows: List[List[str]],
     syns: Mapping[str, List[str]],
     units: Mapping[str, List[str]],
+    *,
+    page_number: int | None = None,
 ) -> Dict[str, Dict[str, Any]]:
 
     if not rows or len(rows) < 2:
@@ -168,8 +170,10 @@ def _extract_table_grid(
 
         # Resolve to schema unit
         final_unit = None
+
         if raw_unit:
             norm_ru = _norm_unit(raw_unit)
+
             for u in allowed_units:
                 if norm_ru == _norm_unit(u):
                     final_unit = u
@@ -180,12 +184,20 @@ def _extract_table_grid(
             final_unit = allowed_units[0]
             raw_unit = allowed_units[0]
 
+        # Preserve the matched table row as provenance context
+        source_context = " | ".join(
+            str(cell or "").strip()
+            for cell in row
+        )
+
         results[matched] = {
             "raw_value": value_raw,
             "raw_unit": raw_unit,
-            "value": value_raw,   # normalizer will parse
-            "unit": final_unit,   # normalizer will finalize
+            "value": value_raw,
+            "unit": final_unit,
             "confidence": 0.9,
+            "page": page_number,
+            "source_context": source_context,
         }
 
     return results
@@ -208,13 +220,18 @@ def extract_kpis_tables_grid(
 
     try:
         with pdfplumber.open(pdf_path) as pdf:
-            for page in pdf.pages:
+            for page_number, page in enumerate(pdf.pages, start=1):
                 tables_grid = page.extract_tables() or []
                 for table_grid in tables_grid:
                     if not table_grid:
                         continue
 
-                    hits = _extract_table_grid(table_grid, syns, units)
+                    hits = _extract_table_grid(
+                        table_grid,
+                        syns,
+                        units,
+                        page_number=page_number,
+                    )
 
                     # First-hit rule: keep only the first occurrence
                     for code, entry in hits.items():
