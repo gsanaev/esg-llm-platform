@@ -23,7 +23,8 @@ from esg.normalization.nlp_normalizer import normalize_nlp_result
 from esg.normalization.llm_normalizer import normalize_llm_result
 
 # Output structure
-from esg.core.types import KPIResult
+from esg.core.types import EvidenceCandidate, KPIResult
+from esg.pipeline.evidence import normalized_results_to_evidence
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +118,10 @@ class ESGPipelineV2:
         - llm   (final backfill for missing KPIs)
     """
 
-    def run_on_pdf(self, pdf_path: str) -> List[KPIResult]:
+    def run_on_pdf_with_evidence(
+        self,
+        pdf_path: str,
+    ) -> tuple[List[KPIResult], List[EvidenceCandidate]]:
         path = Path(pdf_path)
         if not path.exists():
             raise FileNotFoundError(pdf_path)
@@ -144,15 +148,31 @@ class ESGPipelineV2:
         regex_norm = normalize_regex_result(regex_raw, kpi_schema)
         nlp_norm = normalize_nlp_result(nlp_raw, kpi_schema)
 
+        evidence: List[EvidenceCandidate] = []
+
+        for method, normalized in [
+            ("table_grid", table_grid_norm),
+            ("table_plain", table_plain_norm),
+            ("regex", regex_norm),
+            ("nlp", nlp_norm),
+        ]:
+            evidence.extend(
+                normalized_results_to_evidence(
+                    normalized,
+                    source_document=str(path),
+                    extraction_method=method,
+                )
+            )
+
         # Fuse deterministic sources
         fused = fuse_all_sources(
             regex_norm=regex_norm,
             table_grid_norm=table_grid_norm,
             table_plain_norm=table_plain_norm,
             nlp_norm=nlp_norm,
-            llm_norm={},           
+            llm_norm={},
             kpi_codes=kpi_codes,
-        )   
+        )
 
         # --------------------------------------------------
         # 2) LLM backfill (Option B – Hybrid Assist)
@@ -183,6 +203,14 @@ class ESGPipelineV2:
             except Exception as exc:
                 logger.warning("pipeline: llm backfill failed: %s", exc)
                 llm_norm = {}
+
+            evidence.extend(
+                normalized_results_to_evidence(
+                    llm_norm,
+                    source_document=str(path),
+                    extraction_method="llm",
+                )
+            )
 
             # Fill only those KPIs that are still missing
             for code in missing_codes:
@@ -215,6 +243,13 @@ class ESGPipelineV2:
                 )
             )
 
+        return results, evidence
+
+    def run_on_pdf(self, pdf_path: str) -> List[KPIResult]:
+        """
+        Compatibility API returning the current final KPI results.
+        """
+        results, _ = self.run_on_pdf_with_evidence(pdf_path)
         return results
 
 
