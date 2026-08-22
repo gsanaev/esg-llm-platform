@@ -61,6 +61,8 @@ data/out/
 out/
 *.csv
 *.json
+!src/esg/schemas/*.json
+
 output_*.json
 out_*.json
 ms_v2.json

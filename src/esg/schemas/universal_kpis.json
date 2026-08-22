@@ -1,0 +1,48 @@
+{
+  "total_ghg_emissions": {
+    "display_name": "Total GHG Emissions",
+    "value_type": "quantitative",
+    "canonical_unit": "tCO2e",
+    "accepted_units": ["tCO2e", "tco2e", "TCOne", "tCOne"],
+    "synonyms": [
+      "total ghg emissions",
+      "ghg emissions total"
+    ],
+    "keywords": [
+      "total ghg",
+      "greenhouse gas",
+      "emissions"
+    ]
+  },
+
+  "energy_consumption": {
+    "display_name": "Energy Consumption",
+    "value_type": "quantitative",
+    "canonical_unit": "MWh",
+    "accepted_units": ["MWh", "kWh", "GWh"],
+    "synonyms": [
+      "energy consumption",
+      "total energy consumption"
+    ],
+    "keywords": [
+      "energy consumption",
+      "energy use"
+    ]
+  },
+
+  "water_withdrawal": {
+    "display_name": "Water Withdrawal",
+    "value_type": "quantitative",
+    "canonical_unit": "m3",
+    "accepted_units": ["m3", "m³", "cubic meters"],
+    "synonyms": [
+      "water withdrawal",
+      "total water withdrawal"
+    ],
+    "keywords": [
+      "water withdrawal",
+      "water use",
+      "water extracted"
+    ]
+  }
+}
