@@ -6,6 +6,8 @@ import re
 from functools import lru_cache
 from typing import Dict, Any, Mapping
 
+from esg.core.schema import get_accepted_units
+
 logger = logging.getLogger(__name__)
 
 
@@ -122,7 +124,7 @@ def extract_kpis_regex(
     cleaned = re.sub(r"\s+", " ", text)
 
     for code, meta in kpi_schema.items():
-        units = meta.get("units") or []
+        units = get_accepted_units(meta)
         if not units:
             continue
 

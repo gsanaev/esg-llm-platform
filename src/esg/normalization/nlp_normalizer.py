@@ -6,6 +6,7 @@ from typing import Any, Dict, Mapping
 from esg.utils.numeric_parser import parse_scaled_number
 from esg.normalization.scoring import compute_extraction_score
 
+from esg.core.schema import get_accepted_units
 
 def _norm_unit_token(u: str) -> str:
     """Normalize units: lowercase, remove spaces, unify '³'→'3'."""
@@ -41,7 +42,7 @@ def normalize_nlp_result(
         raw_unit = entry.get("raw_unit")
         confidence = float(entry.get("confidence", 0.65))
 
-        allowed_units = kpi_schema.get(code, {}).get("units", [])
+        allowed_units = get_accepted_units(kpi_schema.get(code, {}))
 
         # ---- Value parsing (locale + scaling words) ----
         value = parse_scaled_number(raw_value)

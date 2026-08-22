@@ -8,6 +8,8 @@ from typing import Any, Dict, List, Mapping
 
 import pdfplumber
 
+from esg.core.schema import get_accepted_units, get_synonyms
+
 logger = logging.getLogger(__name__)
 
 
@@ -63,7 +65,7 @@ def _build_synonyms(kpi_schema: Mapping[str, Any]) -> Dict[str, List[str]]:
     """
     out = {}
     for code, meta in kpi_schema.items():
-        base = meta.get("synonyms") or [code.replace("_", " ")]
+        base = get_synonyms(code, meta)
         combined = base + _HARDCODED.get(code, [])
         out[code] = [_norm_text(s) for s in combined if _norm_text(s)]
     return out
@@ -71,7 +73,10 @@ def _build_synonyms(kpi_schema: Mapping[str, Any]) -> Dict[str, List[str]]:
 
 def _build_units(kpi_schema: Mapping[str, Any]) -> Dict[str, List[str]]:
     """Return {code: allowed_units} directly from the schema."""
-    return {code: (meta.get("units") or []) for code, meta in kpi_schema.items()}
+    return {
+        code: get_accepted_units(meta)
+        for code, meta in kpi_schema.items()
+    }
 
 
 # ============================================================

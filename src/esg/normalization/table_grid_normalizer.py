@@ -7,6 +7,7 @@ from typing import Any, Dict, Mapping, Optional
 from esg.utils.numeric_parser import parse_locale_number
 from esg.normalization.scoring import compute_extraction_score
 
+from esg.core.schema import get_accepted_units
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,7 @@ def normalize_table_grid_result(
         reported_unit = entry.get("unit")
         confidence = float(entry.get("confidence", 0.9))
 
-        allowed_units = kpi_schema.get(code, {}).get("units", [])
+        allowed_units = get_accepted_units(kpi_schema.get(code, {}))
 
         # ---------------------------------------------------------
         # 1) Number parsing

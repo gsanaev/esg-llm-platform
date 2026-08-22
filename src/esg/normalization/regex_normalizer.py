@@ -7,6 +7,7 @@ from typing import Dict, Any, Mapping, Optional
 from esg.utils.numeric_parser import parse_scaled_number
 from esg.normalization.scoring import compute_extraction_score
 
+from esg.core.schema import get_accepted_units, get_canonical_unit
 
 logger = logging.getLogger(__name__)
 
@@ -123,8 +124,9 @@ def normalize_regex_result(
         raw_unit = entry.get("raw_unit")
 
         # Canonical base unit: first unit in schema (if any)
-        units = kpi_schema.get(kpi_code, {}).get("units", [])
-        canonical_unit = units[0] if units else None
+        meta = kpi_schema.get(kpi_code, {})
+        units = get_accepted_units(meta)
+        canonical_unit = get_canonical_unit(meta)
 
         # --- Numeric parsing (locale + "k"/"million" etc.) ---
         value = parse_scaled_number(raw_value)

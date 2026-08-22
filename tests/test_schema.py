@@ -37,14 +37,13 @@ def test_schema_helpers_prefer_explicit_synonyms():
     ]
 
 
-def test_schema_helpers_fall_back_to_keywords():
+def test_schema_helpers_do_not_treat_keywords_as_synonyms():
     meta = {
-        "keywords": ["water withdrawal", "water extracted"],
+        "keywords": ["water use", "water extracted"],
     }
 
     assert get_synonyms("water_withdrawal", meta) == [
-        "water withdrawal",
-        "water extracted",
+        "water withdrawal"
     ]
 
 

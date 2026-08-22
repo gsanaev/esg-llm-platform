@@ -6,6 +6,8 @@ import re
 from functools import lru_cache
 from typing import Any, Dict, Mapping
 
+from esg.core.schema import get_accepted_units, get_synonyms
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,14 +38,17 @@ def _build_kpi_synonyms(kpi_schema: Mapping[str, Any]) -> Dict[str, list[str]]:
     """
     syns: Dict[str, list[str]] = {}
     for code, meta in kpi_schema.items():
-        raw = meta.get("synonyms") or [code.replace("_", " ")]
+        raw = get_synonyms(code, meta)
         syns[code] = [s.lower() for s in raw]
     return syns
 
 
 def _build_kpi_units(kpi_schema: Mapping[str, Any]) -> Dict[str, list[str]]:
     """Extract units (as-is) per KPI from schema."""
-    return {code: (meta.get("units") or []) for code, meta in kpi_schema.items()}
+    return {
+        code: get_accepted_units(meta)
+        for code, meta in kpi_schema.items()
+    }
 
 
 # ======================================================================

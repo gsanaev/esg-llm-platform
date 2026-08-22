@@ -8,6 +8,8 @@ from typing import Any, Dict, Mapping, List
 
 import pdfplumber
 
+from esg.core.schema import get_accepted_units, get_synonyms
+
 logger = logging.getLogger(__name__)
 
 
@@ -68,13 +70,13 @@ def _parse_table_plain_text(
 
     # Precompute normalized synonyms per KPI
     syns_by_kpi: Dict[str, List[str]] = {
-        code: [s.lower() for s in (meta.get("synonyms") or [code.replace("_", " ")])]
+        code: [s.lower() for s in get_synonyms(code, meta)]
         for code, meta in kpi_schema.items()
     }
 
     # Units per KPI
     units_by_kpi: Dict[str, List[str]] = {
-        code: (meta.get("units") or [])
+        code: get_accepted_units(meta)
         for code, meta in kpi_schema.items()
     }
 

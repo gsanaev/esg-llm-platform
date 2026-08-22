@@ -40,14 +40,10 @@ def get_synonyms(code: str, meta: Mapping[str, Any]) -> list[str]:
     Return controlled metric-identification phrases.
 
     Prefer explicit `synonyms`. During migration, fall back to
-    `keywords`, then finally to the humanized KPI code.
+    the humanized KPI code.
     """
     synonyms = meta.get("synonyms")
     if synonyms:
         return list(synonyms)
-
-    keywords = meta.get("keywords")
-    if keywords:
-        return list(keywords)
 
     return [code.replace("_", " ")]

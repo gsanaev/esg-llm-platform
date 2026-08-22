@@ -6,6 +6,7 @@ from typing import Any, Dict, Mapping
 from esg.utils.numeric_parser import parse_locale_number
 from esg.normalization.scoring import compute_extraction_score
 
+from esg.core.schema import get_accepted_units
 
 def _norm_unit(u: str) -> str:
     """Normalize unit for comparison."""
@@ -46,7 +47,7 @@ def normalize_table_plain_result(
         value = parse_locale_number(raw_value)
 
         # ---- Unit resolution ----
-        allowed_units = kpi_schema.get(code, {}).get("units", [])
+        allowed_units = get_accepted_units(kpi_schema.get(code, {}))
         unit = None
 
         if raw_unit and allowed_units:
