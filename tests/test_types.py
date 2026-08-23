@@ -1,4 +1,6 @@
-from esg.core.types import EvidenceCandidate
+import pytest
+
+from esg.core.types import EvidenceCandidate, ReconciledKPIResult
 
 
 def test_evidence_candidate_preserves_quantitative_provenance():
@@ -42,3 +44,59 @@ def test_evidence_candidate_supports_qualitative_values():
 
     assert candidate.value_normalized == "high dependency"
     assert candidate.unit_normalized is None
+
+def test_reconciled_result_supports_accepted_evidence():
+    evidence = EvidenceCandidate(
+        metric="water_withdrawal",
+        value_raw="1,200,000",
+        value_normalized=1_200_000.0,
+        unit_raw="m3",
+        unit_normalized="m3",
+        source_document="synthetic_report.pdf",
+        extraction_method="table_grid",
+        extraction_score=0.90,
+    )
+
+    result = ReconciledKPIResult(
+        metric="water_withdrawal",
+        value=1_200_000.0,
+        unit="m3",
+        supporting_evidence=(evidence,),
+        conflict_flag=False,
+        review_required=False,
+        status="accepted",
+    )
+
+    assert result.status == "accepted"
+    assert result.value == 1_200_000.0
+    assert result.supporting_evidence == (evidence,)
+    assert result.conflict_flag is False
+    assert result.review_required is False
+
+
+def test_reconciled_result_supports_review_required():
+    result = ReconciledKPIResult(
+        metric="water_withdrawal",
+        value=None,
+        unit="m3",
+        conflict_flag=True,
+        review_required=True,
+        status="review_required",
+    )
+
+    assert result.status == "review_required"
+    assert result.conflict_flag is True
+    assert result.review_required is True
+
+
+def test_reconciled_result_rejects_value_with_not_reported_status():
+    with pytest.raises(
+        ValueError,
+        match="cannot have status 'not_reported'",
+    ):
+        ReconciledKPIResult(
+            metric="water_withdrawal",
+            value=1_200_000.0,
+            unit="m3",
+            status="not_reported",
+        )
