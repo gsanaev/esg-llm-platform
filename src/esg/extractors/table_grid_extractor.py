@@ -114,20 +114,20 @@ def _detect_cols(header: List[str]) -> Dict[str, int]:
 # Extract from a single table_grid
 # ============================================================
 
-def _extract_table_grid(
+def _extract_table_grid_candidates(
     rows: List[List[str]],
     syns: Mapping[str, List[str]],
     units: Mapping[str, List[str]],
     *,
     page_number: int | None = None,
-) -> Dict[str, Dict[str, Any]]:
+) -> Dict[str, List[Dict[str, Any]]]:
 
     if not rows or len(rows) < 2:
         return {}
 
     header = rows[0]
     col = _detect_cols(header)
-    results = {}
+    results: Dict[str, List[Dict[str, Any]]] = {}
 
     for row in rows[1:]:
         if not row:
@@ -190,17 +190,92 @@ def _extract_table_grid(
             for cell in row
         )
 
-        results[matched] = {
-            "raw_value": value_raw,
-            "raw_unit": raw_unit,
-            "value": value_raw,
-            "unit": final_unit,
-            "confidence": 0.9,
-            "page": page_number,
-            "source_context": source_context,
-        }
+        results.setdefault(matched, []).append(
+            {
+                "raw_value": value_raw,
+                "raw_unit": raw_unit,
+                "value": value_raw,
+                "unit": final_unit,
+                "confidence": 0.9,
+                "page": page_number,
+                "source_context": source_context,
+            }
+        )
 
     return results
+
+
+def _extract_table_grid(
+    rows: List[List[str]],
+    syns: Mapping[str, List[str]],
+    units: Mapping[str, List[str]],
+    *,
+    page_number: int | None = None,
+) -> Dict[str, Dict[str, Any]]:
+    """
+    Compatibility helper returning one observation per KPI.
+
+    Preserve the legacy behavior where the last matching row within a
+    single table wins.
+    """
+    candidates = _extract_table_grid_candidates(
+        rows,
+        syns,
+        units,
+        page_number=page_number,
+    )
+
+    return {
+        code: entries[-1]
+        for code, entries in candidates.items()
+        if entries
+    }
+
+
+def extract_kpi_candidates_tables_grid(
+    pdf_path: str,
+    kpi_schema: Mapping[str, Any],
+) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Extract all table-grid observations for each KPI.
+
+    Unlike the compatibility API, this function preserves repeated
+    observations across rows, tables, and pages for later reconciliation.
+    """
+    logger.info("table_grid: extracting all candidates from %s", pdf_path)
+
+    syns = _build_synonyms(kpi_schema)
+    units = _build_units(kpi_schema)
+    aggregated: Dict[str, List[Dict[str, Any]]] = {}
+
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            for page_number, page in enumerate(pdf.pages, start=1):
+                tables_grid = page.extract_tables() or []
+
+                for table_grid in tables_grid:
+                    if not table_grid:
+                        continue
+
+                    hits = _extract_table_grid_candidates(
+                        table_grid,
+                        syns,
+                        units,
+                        page_number=page_number,
+                    )
+
+                    for code, entries in hits.items():
+                        aggregated.setdefault(code, []).extend(entries)
+
+    except Exception as exc:
+        logger.warning(
+            "table_grid: pdfplumber failed for %s: %s",
+            pdf_path,
+            exc,
+        )
+        return {}
+
+    return aggregated
 
 
 # ============================================================

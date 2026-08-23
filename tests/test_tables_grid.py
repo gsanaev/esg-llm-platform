@@ -2,8 +2,15 @@
 import json
 from pathlib import Path
 
-from esg.extractors.table_grid_extractor import extract_kpis_tables_grid
+from esg.extractors.table_grid_extractor import (
+    extract_kpi_candidates_tables_grid,
+    extract_kpis_tables_grid,
+)
 from esg.normalization.table_grid_normalizer import normalize_table_grid_result
+
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 
 SCHEMA_PATH = Path("src/esg/schemas/universal_kpis.json")
 PDF_PATH = Path("data/samples/esg_simple_table.pdf")   # updated
@@ -30,3 +37,48 @@ def test_table_v3_grid_tables():
     assert normalized["energy_consumption"]["value"] == 500000.0
     assert "water_withdrawal" in normalized
     assert normalized["water_withdrawal"]["value"] == 1200000.0
+
+
+def test_table_grid_preserves_multiple_candidates(tmp_path):
+    pdf_path = tmp_path / "repeated_water_withdrawal.pdf"
+
+    doc = SimpleDocTemplate(str(pdf_path), pagesize=A4)
+
+    data = [
+        ["KPI", "Unit", "2024"],
+        ["Total water withdrawal", "m3", "1,200,000"],
+        ["Total water withdrawal", "m3", "1,250,000"],
+    ]
+
+    table = Table(data)
+    table.setStyle(
+        TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ]
+        )
+    )
+
+    doc.build([table])
+
+    candidates = extract_kpi_candidates_tables_grid(
+        str(pdf_path),
+        load_kpis(),
+    )
+
+    water = candidates["water_withdrawal"]
+
+    assert len(water) == 2
+    assert [entry["raw_value"] for entry in water] == [
+        "1,200,000",
+        "1,250,000",
+    ]
+    assert all(entry["page"] == 1 for entry in water)
+    assert all(entry["source_context"] for entry in water)
+
+    legacy = extract_kpis_tables_grid(
+        str(pdf_path),
+        load_kpis(),
+    )
+
+    assert legacy["water_withdrawal"]["raw_value"] == "1,250,000"
