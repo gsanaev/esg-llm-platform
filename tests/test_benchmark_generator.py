@@ -6,6 +6,7 @@ from esg.benchmark.generator import generate_benchmark_pdfs
 
 
 TRUTH_PATH = Path("data/benchmark/truth/benchmark_truth.yaml")
+CASES_PATH = Path("data/benchmark/cases/benchmark_cases.yaml")
 
 
 def _extract_pdf_text(path: Path) -> str:
@@ -14,24 +15,46 @@ def _extract_pdf_text(path: Path) -> str:
 
 
 def test_generate_benchmark_pdfs(tmp_path):
-    paths = generate_benchmark_pdfs(TRUTH_PATH, tmp_path)
+    paths = generate_benchmark_pdfs(
+        TRUTH_PATH,
+        CASES_PATH,
+        tmp_path,
+    )
 
     assert [path.name for path in paths] == [
-        "synthetic_alpha.pdf",
-        "synthetic_beta.pdf",
+        "alpha_structured_table.pdf",
+        "alpha_clean_narrative.pdf",
+        "beta_locale_table.pdf",
+        "beta_mixed_units.pdf",
     ]
     assert all(path.is_file() for path in paths)
 
-    alpha_text = _extract_pdf_text(paths[0])
-    beta_text = _extract_pdf_text(paths[1])
+    texts = {
+        path.name: _extract_pdf_text(path)
+        for path in paths
+    }
 
-    assert "synthetic_alpha" in alpha_text
-    assert "2024" in alpha_text
-    assert "123,400" in alpha_text
-    assert "500,000" in alpha_text
-    assert "1,200,000" in alpha_text
+    table_text = texts["alpha_structured_table.pdf"]
+    assert "synthetic_alpha" in table_text
+    assert "123,400" in table_text
+    assert "500,000" in table_text
+    assert "1,200,000" in table_text
 
-    assert "synthetic_beta" in beta_text
-    assert "87,250" in beta_text
-    assert "318,000" in beta_text
-    assert "740,000" in beta_text
+    narrative_text = texts["alpha_clean_narrative.pdf"]
+    assert "synthetic_alpha" in narrative_text
+    assert "123,400" in narrative_text
+    assert "500,000" in narrative_text
+    assert "1,200,000" in narrative_text
+
+    locale_text = texts["beta_locale_table.pdf"]
+    assert "synthetic_beta" in locale_text
+    assert "87.250" in locale_text
+    assert "318.000" in locale_text
+    assert "740.000" in locale_text
+
+    mixed_text = texts["beta_mixed_units.pdf"]
+    assert "synthetic_beta" in mixed_text
+    assert "GWh" in mixed_text
+    assert "318" in mixed_text
+    assert "318,000" not in mixed_text
+    assert "740,000" in mixed_text
