@@ -1,0 +1,23 @@
+benchmark_cases:
+  - case_id: "alpha_structured_table"
+    company_id: "synthetic_alpha"
+    disclosure_format: "table"
+    output_filename: "alpha_structured_table.pdf"
+
+  - case_id: "alpha_clean_narrative"
+    company_id: "synthetic_alpha"
+    disclosure_format: "narrative"
+    output_filename: "alpha_clean_narrative.pdf"
+
+  - case_id: "beta_locale_table"
+    company_id: "synthetic_beta"
+    disclosure_format: "table"
+    number_format: "de"
+    output_filename: "beta_locale_table.pdf"
+
+  - case_id: "beta_mixed_units"
+    company_id: "synthetic_beta"
+    disclosure_format: "table"
+    unit_overrides:
+      energy_consumption: "GWh"
+    output_filename: "beta_mixed_units.pdf"
