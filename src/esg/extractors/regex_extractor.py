@@ -173,3 +173,79 @@ def extract_kpis_regex(
 
 
     return results
+
+
+def extract_kpi_candidates_regex(
+    text: str,
+    kpi_schema: Mapping[str, Any],
+    *,
+    base_confidence: float = 0.6,
+) -> Dict[str, list[Dict[str, Any]]]:
+    """
+    Extract all non-overlapping regex observations for each KPI.
+
+    Pattern priority remains A -> B -> C -> D when overlapping matches
+    represent the same text span. The legacy extract_kpis_regex() API
+    remains unchanged.
+    """
+    results: Dict[str, list[Dict[str, Any]]] = {}
+    if not text:
+        return results
+
+    cleaned = re.sub(r"\s+", " ", text)
+
+    for code, meta in kpi_schema.items():
+        units = get_accepted_units(meta)
+        if not units:
+            continue
+
+        patterns = [
+            ("A", _get_pattern_value_first(units)),
+            ("B", _pattern_paren_unit_first(units)),
+            ("C", _pattern_unit_first(units)),
+            (
+                "D",
+                _pattern_paren_unit_near_value(
+                    units,
+                    max_window=120,
+                ),
+            ),
+        ]
+
+        accepted_spans: list[tuple[int, int]] = []
+        candidates: list[tuple[int, Dict[str, Any]]] = []
+
+        for pattern_name, pattern in patterns:
+            for match in pattern.finditer(cleaned):
+                start, end = match.span()
+
+                overlaps_existing = any(
+                    start < existing_end and end > existing_start
+                    for existing_start, existing_end in accepted_spans
+                )
+                if overlaps_existing:
+                    continue
+
+                raw_value = match.group("value").strip().rstrip(".,;")
+                raw_unit = match.group("unit").strip()
+
+                accepted_spans.append((start, end))
+                candidates.append(
+                    (
+                        start,
+                        {
+                            "raw_value": raw_value,
+                            "raw_unit": raw_unit,
+                            "confidence": base_confidence,
+                        },
+                    )
+                )
+
+        if candidates:
+            candidates.sort(key=lambda item: item[0])
+            results[code] = [
+                entry
+                for _, entry in candidates
+            ]
+
+    return results

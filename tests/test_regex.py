@@ -2,7 +2,10 @@
 import json
 from pathlib import Path
 
-from esg.extractors.regex_extractor import extract_kpis_regex
+from esg.extractors.regex_extractor import (
+    extract_kpi_candidates_regex,
+    extract_kpis_regex,
+)
 from esg.normalization.regex_normalizer import normalize_regex_result
 from esg.utils.pdf_reader import extract_text
 
@@ -29,3 +32,50 @@ def test_regex_basic_extraction():
         assert "value" in result
         assert isinstance(result["value"], (float, type(None)))
         assert "unit" in result
+
+
+def test_regex_preserves_multiple_candidates():
+    kpi_schema = load_kpis()
+
+    text = (
+        "Water withdrawal was 1,200,000 m3. "
+        "Later water withdrawal was 1,250,000 m3."
+    )
+
+    candidates = extract_kpi_candidates_regex(
+        text,
+        kpi_schema,
+    )
+
+    water = candidates["water_withdrawal"]
+
+    assert len(water) == 2
+    assert [entry["raw_value"] for entry in water] == [
+        "1,200,000",
+        "1,250,000",
+    ]
+    assert all(entry["raw_unit"] == "m3" for entry in water)
+
+    legacy = extract_kpis_regex(
+        text,
+        kpi_schema,
+    )
+
+    assert legacy["water_withdrawal"]["raw_value"] == "1,200,000"
+
+
+def test_regex_candidates_deduplicate_overlapping_patterns():
+    kpi_schema = load_kpis()
+
+    text = "Water withdrawal (m3) 1,200,000."
+
+    candidates = extract_kpi_candidates_regex(
+        text,
+        kpi_schema,
+    )
+
+    water = candidates["water_withdrawal"]
+
+    assert len(water) == 1
+    assert water[0]["raw_value"] == "1,200,000"
+    assert water[0]["raw_unit"] == "m3"
