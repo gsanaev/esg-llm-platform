@@ -84,3 +84,6 @@ build/
 # OS / Misc
 ########################################
 Thumbs.db
+
+# Generated benchmark artifacts
+data/benchmark/generated/
