@@ -1,0 +1,28 @@
+benchmark_version: "2.0"
+
+companies:
+  - company_id: "synthetic_alpha"
+    reporting_year: 2024
+    metrics:
+      total_ghg_emissions:
+        value: 123400.0
+        unit: "tCO2e"
+      energy_consumption:
+        value: 500000.0
+        unit: "MWh"
+      water_withdrawal:
+        value: 1200000.0
+        unit: "m3"
+
+  - company_id: "synthetic_beta"
+    reporting_year: 2024
+    metrics:
+      total_ghg_emissions:
+        value: 87250.0
+        unit: "tCO2e"
+      energy_consumption:
+        value: 318000.0
+        unit: "MWh"
+      water_withdrawal:
+        value: 740000.0
+        unit: "m3"
