@@ -50,12 +50,12 @@ def _is_table_plain_like(line: str) -> bool:
 # Core line parser
 # ============================================================
 
-def _parse_table_plain_text(
+def _parse_table_plain_candidates(
     text: str,
     kpi_schema: Mapping[str, Any],
     *,
     page_number: int | None = None,
-) -> Dict[str, Dict[str, Any]]:
+) -> Dict[str, List[Dict[str, Any]]]:
     """
     Parse extracted plaintext tables and detect KPI rows using:
       - KPI synonyms
@@ -63,7 +63,7 @@ def _parse_table_plain_text(
       - Trailing-number heuristic
 
     Returns:
-      { kpi_code: { raw_value, raw_unit, confidence } }
+      { kpi_code: [{ raw_value, raw_unit, confidence, ... }, ...] }
     """
     # Clean and split lines
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
@@ -85,7 +85,7 @@ def _parse_table_plain_text(
     # Match a number at end of line
     number_pattern = re.compile(r"(-?\d[\d,.\s]*)\s*$")
 
-    results: Dict[str, Dict[str, Any]] = {}
+    results: Dict[str, List[Dict[str, Any]]] = {}
 
     for line in lines:
         lowered = line.lower()
@@ -100,8 +100,6 @@ def _parse_table_plain_text(
 
         # Try each KPI
         for code, syns in syns_by_kpi.items():
-            if code in results:
-                continue  # first-hit rule
 
             # Synonym detection
             if not any(s in lowered for s in syns):
@@ -122,13 +120,15 @@ def _parse_table_plain_text(
 
             raw_value = m.group(1).strip()
 
-            results[code] = {
-                "raw_value": raw_value,
-                "raw_unit": raw_unit,
-                "confidence": 0.85,
-                "page": page_number,
-                "source_context": line,
-            }
+            results.setdefault(code, []).append(
+                {
+                    "raw_value": raw_value,
+                    "raw_unit": raw_unit,
+                    "confidence": 0.85,
+                    "page": page_number,
+                    "source_context": line,
+                }
+            )
 
             logger.info(
                 "table_plain hit %s: %s %s (line=%r)",
@@ -136,6 +136,75 @@ def _parse_table_plain_text(
             )
 
     return results
+
+
+def _parse_table_plain_text(
+    text: str,
+    kpi_schema: Mapping[str, Any],
+    *,
+    page_number: int | None = None,
+) -> Dict[str, Dict[str, Any]]:
+    """
+    Compatibility parser returning one observation per KPI.
+
+    Preserve the legacy behavior where the first matching line on a page wins.
+    """
+    candidates = _parse_table_plain_candidates(
+        text,
+        kpi_schema,
+        page_number=page_number,
+    )
+
+    return {
+        code: entries[0]
+        for code, entries in candidates.items()
+        if entries
+    }
+
+
+def extract_kpi_candidates_tables_plain(
+    pdf_path: str,
+    kpi_schema: Mapping[str, Any],
+) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Extract all plaintext-table observations for each KPI.
+
+    Unlike the compatibility API, this function preserves repeated
+    observations across lines and pages for later reconciliation.
+    """
+    logger.info("table_plain: extracting all candidates from %s", pdf_path)
+
+    if not isinstance(pdf_path, str) or not os.path.isfile(pdf_path):
+        return {}
+
+    aggregated: Dict[str, List[Dict[str, Any]]] = {}
+
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            for page_number, page in enumerate(pdf.pages, start=1):
+                page_text = page.extract_text() or ""
+
+                if not page_text.strip():
+                    continue
+
+                hits = _parse_table_plain_candidates(
+                    page_text,
+                    kpi_schema,
+                    page_number=page_number,
+                )
+
+                for code, entries in hits.items():
+                    aggregated.setdefault(code, []).extend(entries)
+
+    except Exception as exc:
+        logger.warning(
+            "table_plain: pdfplumber failed for %s: %s",
+            pdf_path,
+            exc,
+        )
+        return {}
+
+    return aggregated
 
 
 # ============================================================
