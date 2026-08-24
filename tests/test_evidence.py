@@ -1,4 +1,8 @@
-from esg.pipeline.evidence import normalized_results_to_evidence
+from esg.normalization.regex_normalizer import normalize_regex_result
+from esg.pipeline.evidence import (
+    normalized_results_to_evidence,
+    raw_candidate_results_to_evidence,
+)
 
 
 def test_normalized_result_becomes_evidence_candidate():
@@ -57,3 +61,56 @@ def test_unparsed_observation_is_still_preserved_as_evidence():
     assert len(evidence) == 1
     assert evidence[0].value_raw == "unclear"
     assert evidence[0].value_normalized is None
+
+
+def test_plural_raw_candidates_become_separate_evidence_candidates():
+    raw_candidates = {
+        "water_withdrawal": [
+            {
+                "raw_value": "1,200,000",
+                "raw_unit": "m3",
+                "confidence": 0.6,
+            },
+            {
+                "raw_value": "1,250,000",
+                "raw_unit": "m3",
+                "confidence": 0.6,
+            },
+        ]
+    }
+
+    kpi_schema = {
+        "water_withdrawal": {
+            "canonical_unit": "m3",
+            "accepted_units": ["m3"],
+        }
+    }
+
+    evidence = raw_candidate_results_to_evidence(
+        raw_candidates,
+        kpi_schema=kpi_schema,
+        normalizer=normalize_regex_result,
+        source_document="synthetic_report.pdf",
+        extraction_method="regex",
+    )
+
+    assert len(evidence) == 2
+
+    assert [candidate.value_raw for candidate in evidence] == [
+        "1,200,000",
+        "1,250,000",
+    ]
+
+    assert [candidate.value_normalized for candidate in evidence] == [
+        1_200_000.0,
+        1_250_000.0,
+    ]
+
+    assert all(
+        candidate.unit_normalized == "m3"
+        for candidate in evidence
+    )
+    assert all(
+        candidate.extraction_method == "regex"
+        for candidate in evidence
+    )

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 from esg.core.types import EvidenceCandidate
 
@@ -41,5 +41,46 @@ def normalized_results_to_evidence(
                 source_context=entry.get("source_context"),
             )
         )
+
+    return evidence
+
+
+def raw_candidate_results_to_evidence(
+    raw_candidates: Mapping[str, list[Mapping[str, Any]]],
+    *,
+    kpi_schema: Mapping[str, Any],
+    normalizer: Callable[
+        [
+            dict[str, dict[str, Any]],
+            Mapping[str, Any],
+        ],
+        Mapping[str, Mapping[str, Any]],
+    ],
+    source_document: str,
+    extraction_method: str,
+) -> list[EvidenceCandidate]:
+    """
+    Normalize plural raw extractor candidates one observation at a time
+    and convert them into auditable EvidenceCandidate objects.
+
+    Existing single-result normalizers are reused unchanged.
+    Candidate order is preserved.
+    """
+    evidence: list[EvidenceCandidate] = []
+
+    for metric, entries in raw_candidates.items():
+        for entry in entries:
+            normalized = normalizer(
+                {metric: dict(entry)},
+                kpi_schema,
+            )
+
+            evidence.extend(
+                normalized_results_to_evidence(
+                    normalized,
+                    source_document=source_document,
+                    extraction_method=extraction_method,
+                )
+            )
 
     return evidence
