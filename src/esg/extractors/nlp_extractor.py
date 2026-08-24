@@ -219,3 +219,144 @@ def extract_kpis_nlp(
             break
 
     return results
+
+
+def extract_kpi_candidates_nlp(
+    text: str,
+    kpi_schema: Mapping[str, Any],
+    *,
+    base_confidence: float = 0.40,
+) -> Dict[str, list[Dict[str, Any]]]:
+    """
+    Extract multiple NLP observations for each KPI.
+
+    The legacy extract_kpis_nlp() API remains unchanged. Candidate
+    deduplication is based on the sentence containing the numeric
+    observation so overlapping sentence windows do not duplicate the
+    same underlying match.
+    """
+    sentences = _split_into_sentences(text)
+    if not sentences:
+        return {}
+
+    lowered = [s.lower() for s in sentences]
+
+    kpi_syns = _build_kpi_synonyms(kpi_schema)
+    kpi_units = _build_kpi_units(kpi_schema)
+
+    results: Dict[str, list[Dict[str, Any]]] = {}
+
+    for code in kpi_schema:
+        units = kpi_units.get(code, [])
+        if not units:
+            continue
+
+        synonyms = kpi_syns.get(code, [])
+        if not synonyms:
+            continue
+
+        pattern_with_unit = _get_pattern_for_units(units)
+
+        pattern_value_only = re.compile(
+            r"(?P<value>[0-9][0-9,\.\s]*(?:million|thousand|k)?)",
+            re.IGNORECASE,
+        )
+
+        candidates: list[Dict[str, Any]] = []
+        seen_matches: set[tuple[int, int, int, str | None]] = set()
+
+        for i, sent_lower in enumerate(lowered):
+            if not any(syn in sent_lower for syn in synonyms):
+                continue
+
+            sentence_indexes = [i]
+            if i + 1 < len(sentences):
+                sentence_indexes.append(i + 1)
+
+            for sentence_index in sentence_indexes:
+                window = sentences[sentence_index]
+
+                window = re.sub(r"\s+", " ", window)
+                window = window.replace("\u00A0", " ")
+                window = window.replace("\u202F", " ")
+                window = window.replace("\u2007", " ")
+                window = window.replace("\u2060", " ")
+
+                # ---------- STRONG MATCH: value+unit ----------
+                strong_matches = list(pattern_with_unit.finditer(window))
+
+                if strong_matches:
+                    for match in strong_matches:
+                        raw_value = (
+                            match.group("value")
+                            .strip()
+                            .rstrip(".,;")
+                        )
+                        raw_unit = match.group("unit").strip()
+
+                        match_key = (
+                            sentence_index,
+                            match.start(),
+                            match.end(),
+                            raw_unit.lower(),
+                        )
+
+                        if match_key in seen_matches:
+                            continue
+
+                        seen_matches.add(match_key)
+
+                        candidates.append(
+                            {
+                                "raw_value": raw_value,
+                                "raw_unit": raw_unit,
+                                "confidence": base_confidence + 0.15,
+                            }
+                        )
+
+                    continue
+
+                # ---------- WEAK MATCH: value only ----------
+                if not any(u.lower() in window.lower() for u in units):
+                    continue
+
+                for match in pattern_value_only.finditer(window):
+                    raw_value = match.group("value").strip()
+
+                    if raw_value.endswith(","):
+                        continue
+                    raw_value = raw_value.rstrip(".,;")
+
+                    try:
+                        value = float(raw_value.replace(",", ""))
+                        if 1000 <= value <= 2100:
+                            continue
+                        if value < 100:
+                            continue
+                    except Exception:
+                        pass
+
+                    match_key = (
+                        sentence_index,
+                        match.start(),
+                        match.end(),
+                        None,
+                    )
+
+                    if match_key in seen_matches:
+                        continue
+
+                    seen_matches.add(match_key)
+
+                    candidates.append(
+                        {
+                            "raw_value": raw_value,
+                            "raw_unit": None,
+                            "confidence": base_confidence,
+                        }
+                    )
+
+        if candidates:
+            results[code] = candidates
+
+    return results
