@@ -139,3 +139,50 @@ def test_nlp_candidates_preserve_single_unambiguous_weak_match():
     assert len(water) == 1
     assert water[0]["raw_value"] == "500,000"
     assert water[0]["raw_unit"] is None
+
+
+def test_nlp_distinguishes_water_withdrawal_from_consumption():
+    kpis = load_kpis()
+
+    kpis["water_consumption"] = {
+        "display_name": "Water Consumption",
+        "value_type": "quantitative",
+        "canonical_unit": "m3",
+        "accepted_units": ["m3", "m³", "cubic meters"],
+        "synonyms": [
+            "water consumption",
+            "total water consumption",
+        ],
+        "keywords": [
+            "water consumption",
+            "water consumed",
+        ],
+    }
+
+    text = (
+        "Total water withdrawal was 1,200,000 m3. "
+        "Total water consumption was 800,000 m3."
+    )
+
+    candidates = extract_kpi_candidates_nlp(
+        text,
+        kpis,
+    )
+
+    assert [
+        entry["raw_value"]
+        for entry in candidates["water_withdrawal"]
+    ] == ["1,200,000"]
+
+    assert [
+        entry["raw_value"]
+        for entry in candidates["water_consumption"]
+    ] == ["800,000"]
+
+    legacy = extract_kpis_nlp(
+        text,
+        kpis,
+    )
+
+    assert legacy["water_withdrawal"]["raw_value"] == "1,200,000"
+    assert legacy["water_consumption"]["raw_value"] == "800,000"

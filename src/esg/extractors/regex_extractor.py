@@ -6,7 +6,7 @@ import re
 from functools import lru_cache
 from typing import Dict, Any, Mapping
 
-from esg.core.schema import get_accepted_units
+from esg.core.schema import get_accepted_units, get_synonyms
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +106,117 @@ def _get_pattern_value_first(units: list[str]) -> re.Pattern:
     return _pattern_value_first("||".join(units))
 
 
+def _norm_unit_identity(unit: str) -> str:
+    """
+    Normalize a unit token for detecting whether KPIs share units.
+    """
+    return "".join(unit.split()).lower().replace("³", "3")
+
+
+def _has_shared_units(
+    code: str,
+    units: list[str],
+    kpi_schema: Mapping[str, Any],
+) -> bool:
+    """
+    Return True when another KPI accepts at least one equivalent unit.
+    """
+    own_units = {
+        _norm_unit_identity(unit)
+        for unit in units
+    }
+
+    for other_code, other_meta in kpi_schema.items():
+        if other_code == code:
+            continue
+
+        other_units = {
+            _norm_unit_identity(unit)
+            for unit in get_accepted_units(other_meta)
+        }
+
+        if own_units & other_units:
+            return True
+
+    return False
+
+
+def _nearest_metric_before(
+    text: str,
+    position: int,
+    kpi_schema: Mapping[str, Any],
+    *,
+    max_distance: int = 120,
+) -> str | None:
+    """
+    Return the KPI whose synonym occurs nearest before a regex match.
+
+    Only synonyms within max_distance characters of the match are
+    considered, preventing stale metric mentions from claiming a
+    later value that happens to use the same unit.
+    """
+    lowered = text.lower()
+
+    nearest_code: str | None = None
+    nearest_position = -1
+
+    for other_code, other_meta in kpi_schema.items():
+        for synonym in get_synonyms(other_code, other_meta):
+            synonym_lower = synonym.lower()
+
+            synonym_position = lowered.rfind(
+                synonym_lower,
+                0,
+                position,
+            )
+
+            if synonym_position < 0:
+                continue
+
+            synonym_end = synonym_position + len(synonym_lower)
+            distance = position - synonym_end
+
+            if distance > max_distance:
+                continue
+
+            if synonym_position > nearest_position:
+                nearest_position = synonym_position
+                nearest_code = other_code
+
+    return nearest_code
+
+
+def _first_semantic_match(
+    pattern: re.Pattern,
+    text: str,
+    code: str,
+    kpi_schema: Mapping[str, Any],
+    *,
+    require_metric_owner: bool,
+) -> re.Match[str] | None:
+    """
+    Return the first match belonging to the requested KPI.
+
+    Semantic ownership is required only for KPIs that share units with
+    another KPI. Unique-unit KPIs preserve the existing regex behavior.
+    """
+    for match in pattern.finditer(text):
+        if not require_metric_owner:
+            return match
+
+        if (
+            _nearest_metric_before(
+                text,
+                match.start(),
+                kpi_schema,
+            )
+            == code
+        ):
+            return match
+
+    return None
+
+
 # =====================================================================
 # Main extractor
 # =====================================================================
@@ -127,6 +238,11 @@ def extract_kpis_regex(
         units = get_accepted_units(meta)
         if not units:
             continue
+        require_metric_owner = _has_shared_units(
+            code,
+            units,
+            kpi_schema,
+        )
 
         # Build 3 patterns
         pA = _get_pattern_value_first(units)
@@ -134,7 +250,13 @@ def extract_kpis_regex(
         pC = _pattern_unit_first(units)
 
         # Try A: "<value> <unit>"
-        mA = pA.search(cleaned)
+        mA = _first_semantic_match(
+            pA,
+            cleaned,
+            code,
+            kpi_schema,
+            require_metric_owner=require_metric_owner,
+        )
         if mA:
             v = mA.group("value").strip()
             u = mA.group("unit").strip()
@@ -143,7 +265,13 @@ def extract_kpis_regex(
             continue
 
         # Try B: "(<unit>) <value>"
-        mB = pB.search(cleaned)
+        mB = _first_semantic_match(
+            pB,
+            cleaned,
+            code,
+            kpi_schema,
+            require_metric_owner=require_metric_owner,
+        )
         if mB:
             v = mB.group("value").strip()
             u = mB.group("unit").strip()
@@ -152,7 +280,13 @@ def extract_kpis_regex(
             continue
 
         # Try C: "<unit> <value>" (no parentheses)
-        mC = pC.search(cleaned)
+        mC = _first_semantic_match(
+            pC,
+            cleaned,
+            code,
+            kpi_schema,
+            require_metric_owner=require_metric_owner,
+        )
         if mC:
             v = mC.group("value").strip()
             u = mC.group("unit").strip()
@@ -163,7 +297,13 @@ def extract_kpis_regex(
 
         # Try D: "(<unit>) ... <value>" (window-limited)
         pD = _pattern_paren_unit_near_value(units, max_window=120)
-        mD = pD.search(cleaned)
+        mD = _first_semantic_match(
+            pD,
+            cleaned,
+            code,
+            kpi_schema,
+            require_metric_owner=require_metric_owner,
+        )
         if mD:
             v = mD.group("value").strip().rstrip(".,;")
             u = mD.group("unit").strip()
@@ -199,6 +339,12 @@ def extract_kpi_candidates_regex(
         if not units:
             continue
 
+        require_metric_owner = _has_shared_units(
+            code,
+            units,
+            kpi_schema,
+        )
+
         patterns = [
             ("A", _get_pattern_value_first(units)),
             ("B", _pattern_paren_unit_first(units)),
@@ -218,6 +364,16 @@ def extract_kpi_candidates_regex(
         for pattern_name, pattern in patterns:
             for match in pattern.finditer(cleaned):
                 start, end = match.span()
+
+                if require_metric_owner:
+                    owner = _nearest_metric_before(
+                        cleaned,
+                        start,
+                        kpi_schema,
+                    )
+
+                    if owner != code:
+                        continue
 
                 overlaps_existing = any(
                     start < existing_end and end > existing_start

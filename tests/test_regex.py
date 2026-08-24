@@ -79,3 +79,91 @@ def test_regex_candidates_deduplicate_overlapping_patterns():
     assert len(water) == 1
     assert water[0]["raw_value"] == "1,200,000"
     assert water[0]["raw_unit"] == "m3"
+
+
+def test_regex_distinguishes_water_withdrawal_from_consumption():
+    kpi_schema = load_kpis()
+
+    kpi_schema["water_consumption"] = {
+        "display_name": "Water Consumption",
+        "value_type": "quantitative",
+        "canonical_unit": "m3",
+        "accepted_units": ["m3", "m³", "cubic meters"],
+        "synonyms": [
+            "water consumption",
+            "total water consumption",
+        ],
+        "keywords": [
+            "water consumption",
+            "water consumed",
+        ],
+    }
+
+    text = (
+        "Total water withdrawal was 1,200,000 m3. "
+        "Total water consumption was 800,000 m3."
+    )
+
+    candidates = extract_kpi_candidates_regex(
+        text,
+        kpi_schema,
+    )
+
+    assert [
+        entry["raw_value"]
+        for entry in candidates["water_withdrawal"]
+    ] == ["1,200,000"]
+
+    assert [
+        entry["raw_value"]
+        for entry in candidates["water_consumption"]
+    ] == ["800,000"]
+
+    legacy = extract_kpis_regex(
+        text,
+        kpi_schema,
+    )
+
+    assert legacy["water_withdrawal"]["raw_value"] == "1,200,000"
+    assert legacy["water_consumption"]["raw_value"] == "800,000"
+
+
+def test_regex_shared_unit_does_not_use_stale_metric_context():
+    kpi_schema = load_kpis()
+
+    kpi_schema["water_consumption"] = {
+        "display_name": "Water Consumption",
+        "value_type": "quantitative",
+        "canonical_unit": "m3",
+        "accepted_units": ["m3", "m³", "cubic meters"],
+        "synonyms": [
+            "water consumption",
+            "total water consumption",
+        ],
+        "keywords": [
+            "water consumption",
+            "water consumed",
+        ],
+    }
+
+    text = (
+        "Water withdrawal was discussed earlier. "
+        + ("Background context without KPI information. " * 10)
+        + "800,000 m3."
+    )
+
+    candidates = extract_kpi_candidates_regex(
+        text,
+        kpi_schema,
+    )
+
+    assert "water_withdrawal" not in candidates
+    assert "water_consumption" not in candidates
+
+    legacy = extract_kpis_regex(
+        text,
+        kpi_schema,
+    )
+
+    assert "water_withdrawal" not in legacy
+    assert "water_consumption" not in legacy

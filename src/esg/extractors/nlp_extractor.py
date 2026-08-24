@@ -275,6 +275,26 @@ def extract_kpi_candidates_nlp(
                 sentence_indexes.append(i + 1)
 
             for sentence_index in sentence_indexes:
+                if sentence_index != i:
+                    next_lower = lowered[sentence_index]
+
+                    mentions_current = any(
+                        synonym in next_lower
+                        for synonym in synonyms
+                    )
+
+                    mentions_other = any(
+                        other_code != code
+                        and any(
+                            other_synonym in next_lower
+                            for other_synonym in other_synonyms
+                        )
+                        for other_code, other_synonyms in kpi_syns.items()
+                    )
+
+                    if mentions_other and not mentions_current:
+                        continue
+
                 window = sentences[sentence_index]
 
                 window = re.sub(r"\s+", " ", window)
