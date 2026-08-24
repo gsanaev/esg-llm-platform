@@ -1,6 +1,9 @@
 # tests/test_pipeline.py
 from pathlib import Path
 from esg.pipeline.pipeline import ESGPipelineV2, run_pipeline
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 
 PDF_TABLE = Path("data/samples/esg_simple_table.pdf")   # updated
 PDF_NLP_ONLY = Path("data/samples/esg_simple_text.pdf") # updated
@@ -60,3 +63,65 @@ def test_pipeline_preserves_evidence_before_fusion():
         candidate.metric == "total_ghg_emissions"
         for candidate in evidence
     )
+
+
+def test_pipeline_preserves_multiple_same_method_evidence(tmp_path):
+    pdf_path = tmp_path / "repeated_water_pipeline.pdf"
+
+    doc = SimpleDocTemplate(str(pdf_path), pagesize=A4)
+
+    data = [
+        ["KPI", "Unit", "2024"],
+        ["Total GHG emissions", "tCO2e", "123,400"],
+        ["Total energy consumption", "MWh", "500,000"],
+        ["Total water withdrawal", "m3", "1,200,000"],
+        ["Total water withdrawal", "m3", "1,250,000"],
+    ]
+
+    table = Table(data)
+    table.setStyle(
+        TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ]
+        )
+    )
+
+    doc.build([table])
+
+    pipeline = ESGPipelineV2()
+    results, evidence = pipeline.run_on_pdf_with_evidence(
+        str(pdf_path)
+    )
+
+    water_grid_evidence = [
+        candidate
+        for candidate in evidence
+        if (
+            candidate.metric == "water_withdrawal"
+            and candidate.extraction_method == "table_grid"
+        )
+    ]
+
+    assert len(water_grid_evidence) == 2
+
+    assert [
+        candidate.value_normalized
+        for candidate in water_grid_evidence
+    ] == [
+        1_200_000.0,
+        1_250_000.0,
+    ]
+
+    assert all(
+        candidate.page == 1
+        for candidate in water_grid_evidence
+    )
+
+    by_code = {
+        result.code: result
+        for result in results
+    }
+
+    assert by_code["water_withdrawal"].value == 1_250_000.0
+    assert by_code["water_withdrawal"].source == ["table_grid"]

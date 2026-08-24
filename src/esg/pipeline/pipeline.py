@@ -9,10 +9,22 @@ from esg.utils.pdf_reader import extract_text
 from esg.config import load_config
 
 # Extractors
-from esg.extractors.regex_extractor import extract_kpis_regex
-from esg.extractors.table_grid_extractor import extract_kpis_tables_grid
-from esg.extractors.table_plain_extractor import extract_kpis_tables_plain
-from esg.extractors.nlp_extractor import extract_kpis_nlp
+from esg.extractors.regex_extractor import (
+    extract_kpi_candidates_regex,
+    extract_kpis_regex,
+)
+from esg.extractors.table_grid_extractor import (
+    extract_kpi_candidates_tables_grid,
+    extract_kpis_tables_grid,
+)
+from esg.extractors.table_plain_extractor import (
+    extract_kpi_candidates_tables_plain,
+    extract_kpis_tables_plain,
+)
+from esg.extractors.nlp_extractor import (
+    extract_kpi_candidates_nlp,
+    extract_kpis_nlp,
+)
 from esg.extractors.llm_extractor import extract_kpis_llm
 
 # Normalizers
@@ -24,7 +36,10 @@ from esg.normalization.llm_normalizer import normalize_llm_result
 
 # Output structure
 from esg.core.types import EvidenceCandidate, KPIResult
-from esg.pipeline.evidence import normalized_results_to_evidence
+from esg.pipeline.evidence import (
+    normalized_results_to_evidence,
+    raw_candidate_results_to_evidence,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -148,17 +163,53 @@ class ESGPipelineV2:
         regex_norm = normalize_regex_result(regex_raw, kpi_schema)
         nlp_norm = normalize_nlp_result(nlp_raw, kpi_schema)
 
+        # Preserve all deterministic observations for later reconciliation
+        table_grid_candidates = extract_kpi_candidates_tables_grid(
+            str(path),
+            kpi_schema,
+        )
+        table_plain_candidates = extract_kpi_candidates_tables_plain(
+            str(path),
+            kpi_schema,
+        )
+        regex_candidates = extract_kpi_candidates_regex(
+            text,
+            kpi_schema,
+        )
+        nlp_candidates = extract_kpi_candidates_nlp(
+            text,
+            kpi_schema,
+        )
+
         evidence: List[EvidenceCandidate] = []
 
-        for method, normalized in [
-            ("table_grid", table_grid_norm),
-            ("table_plain", table_plain_norm),
-            ("regex", regex_norm),
-            ("nlp", nlp_norm),
+        for method, raw_candidates, normalizer in [
+            (
+                "table_grid",
+                table_grid_candidates,
+                normalize_table_grid_result,
+            ),
+            (
+                "table_plain",
+                table_plain_candidates,
+                normalize_table_plain_result,
+            ),
+            (
+                "regex",
+                regex_candidates,
+                normalize_regex_result,
+            ),
+            (
+                "nlp",
+                nlp_candidates,
+                normalize_nlp_result,
+            ),
         ]:
             evidence.extend(
-                normalized_results_to_evidence(
-                    normalized,
+                raw_candidate_results_to_evidence(
+                    raw_candidates,
+                    kpi_schema=kpi_schema,
+                    normalizer=normalizer,
                     source_document=str(path),
                     extraction_method=method,
                 )
