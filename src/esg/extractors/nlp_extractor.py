@@ -258,6 +258,7 @@ def extract_kpi_candidates_nlp(
         pattern_with_unit = _get_pattern_for_units(units)
 
         pattern_value_only = re.compile(
+            r"(?<![A-Za-z0-9])"
             r"(?P<value>[0-9][0-9,\.\s]*(?:million|thousand|k)?)",
             re.IGNORECASE,
         )
@@ -320,11 +321,14 @@ def extract_kpi_candidates_nlp(
                 if not any(u.lower() in window.lower() for u in units):
                     continue
 
+                weak_matches: list[tuple[re.Match[str], str]] = []
+
                 for match in pattern_value_only.finditer(window):
                     raw_value = match.group("value").strip()
 
                     if raw_value.endswith(","):
                         continue
+
                     raw_value = raw_value.rstrip(".,;")
 
                     try:
@@ -336,25 +340,34 @@ def extract_kpi_candidates_nlp(
                     except Exception:
                         pass
 
-                    match_key = (
-                        sentence_index,
-                        match.start(),
-                        match.end(),
-                        None,
-                    )
+                    weak_matches.append((match, raw_value))
 
-                    if match_key in seen_matches:
-                        continue
+                # Weak NLP evidence is usable only when the window contains
+                # one unambiguous plausible numeric observation.
+                if len(weak_matches) != 1:
+                    continue
 
-                    seen_matches.add(match_key)
+                match, raw_value = weak_matches[0]
 
-                    candidates.append(
-                        {
-                            "raw_value": raw_value,
-                            "raw_unit": None,
-                            "confidence": base_confidence,
-                        }
-                    )
+                match_key = (
+                    sentence_index,
+                    match.start(),
+                    match.end(),
+                    None,
+                )
+
+                if match_key in seen_matches:
+                    continue
+
+                seen_matches.add(match_key)
+
+                candidates.append(
+                    {
+                        "raw_value": raw_value,
+                        "raw_unit": None,
+                        "confidence": base_confidence,
+                    }
+                )
 
         if candidates:
             results[code] = candidates

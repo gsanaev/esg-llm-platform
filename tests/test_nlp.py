@@ -105,3 +105,37 @@ def test_nlp_candidates_reject_weak_match_with_trailing_comma():
     )
 
     assert "water_withdrawal" not in candidates
+
+
+def test_nlp_candidates_skip_ambiguous_multi_value_weak_window():
+    kpis = load_kpis()
+
+    text = (
+        "Total GHG emissions tCO2e 123,400 "
+        "Total energy consumption MWh 500,000 "
+        "Total water withdrawal m3 1,200,000"
+    )
+
+    candidates = extract_kpi_candidates_nlp(
+        text,
+        kpis,
+    )
+
+    assert candidates == {}
+
+
+def test_nlp_candidates_preserve_single_unambiguous_weak_match():
+    kpis = load_kpis()
+
+    text = "Water withdrawal (m3) was 500,000"
+
+    candidates = extract_kpi_candidates_nlp(
+        text,
+        kpis,
+    )
+
+    water = candidates["water_withdrawal"]
+
+    assert len(water) == 1
+    assert water[0]["raw_value"] == "500,000"
+    assert water[0]["raw_unit"] is None
