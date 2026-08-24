@@ -35,11 +35,17 @@ from esg.normalization.nlp_normalizer import normalize_nlp_result
 from esg.normalization.llm_normalizer import normalize_llm_result
 
 # Output structure
-from esg.core.types import EvidenceCandidate, KPIResult
+from esg.core.types import (
+    EvidenceCandidate,
+    KPIResult,
+    ReconciledKPIResult,
+)
 from esg.pipeline.evidence import (
     normalized_results_to_evidence,
     raw_candidate_results_to_evidence,
 )
+
+from esg.pipeline.reconciliation import reconcile_metric_evidence
 
 logger = logging.getLogger(__name__)
 
@@ -295,6 +301,28 @@ class ESGPipelineV2:
             )
 
         return results, evidence
+
+    def run_on_pdf_reconciled(
+        self,
+        pdf_path: str,
+    ) -> List[ReconciledKPIResult]:
+        """
+        Run the pipeline and reconcile preserved evidence into final v2 results.
+
+        The existing run_on_pdf() API remains unchanged for compatibility.
+        """
+        _, evidence = self.run_on_pdf_with_evidence(pdf_path)
+
+        cfg = load_config()
+        kpi_codes = list(cfg.universal_kpis.keys())
+
+        return [
+            reconcile_metric_evidence(
+                code,
+                evidence,
+            )
+            for code in kpi_codes
+        ]
 
     def run_on_pdf(self, pdf_path: str) -> List[KPIResult]:
         """

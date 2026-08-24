@@ -125,3 +125,44 @@ def test_pipeline_preserves_multiple_same_method_evidence(tmp_path):
 
     assert by_code["water_withdrawal"].value == 1_250_000.0
     assert by_code["water_withdrawal"].source == ["table_grid"]
+
+    reconciled = pipeline.run_on_pdf_reconciled(
+        str(pdf_path)
+    )
+
+    by_metric = {
+        result.metric: result
+        for result in reconciled
+    }
+
+    water = by_metric["water_withdrawal"]
+
+    assert water.status == "review_required"
+    assert water.value is None
+    assert water.conflict_flag is True
+    assert water.review_required is True
+    assert len(water.supporting_evidence) >= 2
+
+
+def test_pipeline_produces_reconciled_results():
+    pipeline = ESGPipelineV2()
+
+    results = pipeline.run_on_pdf_reconciled(
+        str(PDF_TABLE)
+    )
+
+    assert results
+
+    by_metric = {
+        result.metric: result
+        for result in results
+    }
+
+    ghg = by_metric["total_ghg_emissions"]
+
+    assert ghg.value == 123_400.0
+    assert ghg.unit == "tCO2e"
+    assert ghg.status == "accepted"
+    assert ghg.conflict_flag is False
+    assert ghg.review_required is False
+    assert ghg.supporting_evidence
