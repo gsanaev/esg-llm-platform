@@ -144,3 +144,81 @@ def test_reconciliation_unparsed_evidence_requires_review():
     assert result.value is None
     assert result.conflict_flag is False
     assert result.review_required is True
+
+
+def test_reconciliation_different_locations_are_not_automatic_conflict():
+    evidence = [
+        _water_candidate(
+            1_100_000.0,
+            method="table_grid",
+            location="Frankfurt",
+        ),
+        _water_candidate(
+            1_200_000.0,
+            method="table_grid",
+            location="Berlin",
+        ),
+    ]
+
+    result = reconcile_metric_evidence(
+        "water_withdrawal",
+        evidence,
+    )
+
+    assert result.status == "review_required"
+    assert result.value is None
+    assert result.location is None
+    assert result.conflict_flag is False
+    assert result.review_required is True
+
+
+def test_reconciliation_mixed_known_and_unknown_year_requires_review():
+    evidence = [
+        _water_candidate(
+            1_200_000.0,
+            method="table_grid",
+            year=2024,
+        ),
+        _water_candidate(
+            1_200_000.0,
+            method="regex",
+            year=None,
+        ),
+    ]
+
+    result = reconcile_metric_evidence(
+        "water_withdrawal",
+        evidence,
+    )
+
+    assert result.status == "review_required"
+    assert result.value == 1_200_000.0
+    assert result.year is None
+    assert result.conflict_flag is False
+    assert result.review_required is True
+
+
+def test_reconciliation_flags_incompatible_normalized_units():
+    evidence = [
+        _water_candidate(
+            1_200_000.0,
+            method="table_grid",
+            unit="m3",
+        ),
+        _water_candidate(
+            1_200_000.0,
+            method="regex",
+            unit="liters",
+        ),
+    ]
+
+    result = reconcile_metric_evidence(
+        "water_withdrawal",
+        evidence,
+    )
+
+    assert result.status == "review_required"
+    assert result.value is None
+    assert result.unit is None
+    assert result.conflict_flag is True
+    assert result.review_required is True
