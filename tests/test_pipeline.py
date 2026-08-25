@@ -333,3 +333,97 @@ def test_pipeline_normalizes_water_stress_share(tmp_path):
     assert stress.conflict_flag is False
     assert stress.review_required is False
     assert stress.supporting_evidence
+
+
+def test_pipeline_preserves_facility_location_context(tmp_path):
+    pdf_path = tmp_path / "facility_location_pipeline.pdf"
+
+    doc = SimpleDocTemplate(str(pdf_path), pagesize=A4)
+
+    data = [
+        ["Location", "KPI", "Unit", "2024"],
+        [
+            "Frankfurt facility",
+            "Total water withdrawal",
+            "m3",
+            "350,000",
+        ],
+        [
+            "Berlin facility",
+            "Total water withdrawal",
+            "m3",
+            "280,000",
+        ],
+    ]
+
+    table = Table(data)
+    table.setStyle(
+        TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ]
+        )
+    )
+
+    doc.build([table])
+
+    pipeline = ESGPipelineV2()
+
+    _, evidence = pipeline.run_on_pdf_with_evidence(
+        str(pdf_path)
+    )
+
+    water_grid = [
+        candidate
+        for candidate in evidence
+        if (
+            candidate.metric == "water_withdrawal"
+            and candidate.extraction_method == "table_grid"
+        )
+    ]
+
+    assert len(water_grid) == 2
+
+    assert [
+        candidate.value_normalized
+        for candidate in water_grid
+    ] == [
+        350_000.0,
+        280_000.0,
+    ]
+
+    assert [
+        candidate.location
+        for candidate in water_grid
+    ] == [
+        "Frankfurt facility",
+        "Berlin facility",
+    ]
+
+    reconciled = pipeline.run_on_pdf_reconciled(
+        str(pdf_path)
+    )
+
+    by_metric = {
+        result.metric: result
+        for result in reconciled
+    }
+
+    water = by_metric["water_withdrawal"]
+
+    assert water.status == "review_required"
+    assert water.value is None
+    assert water.location is None
+    assert water.conflict_flag is False
+    assert water.review_required is True
+
+    known_locations = {
+        candidate.location
+        for candidate in water.supporting_evidence
+        if candidate.location is not None
+    }
+
+    assert known_locations == {
+        "Frankfurt facility",
+        "Berlin facility",
+    }

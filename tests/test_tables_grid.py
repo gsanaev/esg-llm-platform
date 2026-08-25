@@ -82,3 +82,60 @@ def test_table_grid_preserves_multiple_candidates(tmp_path):
     )
 
     assert legacy["water_withdrawal"]["raw_value"] == "1,250,000"
+
+
+def test_table_grid_preserves_location_context(tmp_path):
+    pdf_path = tmp_path / "facility_water_withdrawal.pdf"
+
+    doc = SimpleDocTemplate(str(pdf_path), pagesize=A4)
+
+    data = [
+        ["Location", "KPI", "Unit", "2024"],
+        [
+            "Frankfurt facility",
+            "Total water withdrawal",
+            "m3",
+            "350,000",
+        ],
+        [
+            "Berlin facility",
+            "Total water withdrawal",
+            "m3",
+            "280,000",
+        ],
+    ]
+
+    table = Table(data)
+    table.setStyle(
+        TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ]
+        )
+    )
+
+    doc.build([table])
+
+    candidates = extract_kpi_candidates_tables_grid(
+        str(pdf_path),
+        load_kpis(),
+    )
+
+    water = candidates["water_withdrawal"]
+
+    assert len(water) == 2
+    assert [entry["raw_value"] for entry in water] == [
+        "350,000",
+        "280,000",
+    ]
+    assert [entry["location"] for entry in water] == [
+        "Frankfurt facility",
+        "Berlin facility",
+    ]
+
+    legacy = extract_kpis_tables_grid(
+        str(pdf_path),
+        load_kpis(),
+    )
+
+    assert legacy["water_withdrawal"]["location"] == "Berlin facility"

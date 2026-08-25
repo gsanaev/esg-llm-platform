@@ -110,6 +110,32 @@ def _detect_cols(header: List[str]) -> Dict[str, int]:
     }
 
 
+def _detect_location_col(header: List[str]) -> int | None:
+    """
+    Detect an optional facility/geographic location column.
+
+    This is intentionally limited to explicit location-style headers.
+    It does not attempt place-name recognition or geocoding.
+    """
+    normalized = [_norm_text(h) for h in header]
+
+    location_headers = {
+        "location",
+        "facility",
+        "facility location",
+        "site",
+        "site location",
+        "standort",
+        "geographic location",
+    }
+
+    for i, value in enumerate(normalized):
+        if value in location_headers:
+            return i
+
+    return None
+
+
 # ============================================================
 # Extract from a single table_grid
 # ============================================================
@@ -127,6 +153,7 @@ def _extract_table_grid_candidates(
 
     header = rows[0]
     col = _detect_cols(header)
+    location_col = _detect_location_col(header)
     results: Dict[str, List[Dict[str, Any]]] = {}
 
     for row in rows[1:]:
@@ -140,6 +167,12 @@ def _extract_table_grid_candidates(
         kpi_raw = (row[col["kpi"]] or "").strip()
         unit_raw = (row[col["unit"]] or "").strip()
         value_raw = (row[col["value"]] or "").strip()
+        location = None
+
+        if location_col is not None and location_col < len(row):
+            location_raw = (row[location_col] or "").strip()
+            if location_raw:
+                location = location_raw
 
         if not kpi_raw or not value_raw:
             continue
@@ -197,6 +230,7 @@ def _extract_table_grid_candidates(
                 "value": value_raw,
                 "unit": final_unit,
                 "confidence": 0.9,
+                "location": location,
                 "page": page_number,
                 "source_context": source_context,
             }
