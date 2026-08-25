@@ -8,28 +8,74 @@ from typing import Any, Dict, Mapping
 
 from openai import OpenAI
 
+from esg.core.schema import get_canonical_unit, get_synonyms
+
 logger = logging.getLogger(__name__)
 
 # ======================================================================
 # System prompt
 # ======================================================================
 
-SYSTEM_PROMPT = """You are an ESG data extraction model.
-You must extract ONLY these KPI values if present in the text:
+def _build_system_prompt(
+    kpi_schema: Mapping[str, Any],
+) -> str:
+    """
+    Build the LLM extraction contract from the supplied KPI schema.
 
-- total_ghg_emissions (unit: tCO2e)
-- energy_consumption (unit: MWh)
-- water_withdrawal   (unit: m3)
+    The prompt must describe only the metrics supplied by the caller so the
+    same extractor can support both full-schema benchmark runs and the
+    pipeline's missing-KPI fallback mode.
+    """
+    metric_lines: list[str] = []
+
+    for code, meta in kpi_schema.items():
+        value_type = str(
+            meta.get("value_type", "quantitative")
+        )
+        canonical_unit = get_canonical_unit(meta)
+        synonyms = get_synonyms(code, meta)
+
+        unit_description = (
+            canonical_unit
+            if canonical_unit is not None
+            else "none"
+        )
+
+        metric_lines.append(
+            "\n".join(
+                [
+                    f"- {code}",
+                    f"  type: {value_type}",
+                    f"  canonical unit: {unit_description}",
+                    f"  phrases: {'; '.join(synonyms)}",
+                ]
+            )
+        )
+
+    metrics_text = "\n".join(metric_lines)
+
+    return f"""You are an ESG data extraction model.
+Extract ONLY the following metrics if present in the supplied text:
+
+{metrics_text}
+
+Return a JSON object using exactly the supplied metric codes as keys.
+
+For each metric return:
+{{
+  "raw_value": str | null,
+  "raw_unit": str | null
+}}
 
 Rules:
-- Return a JSON object with exactly these keys (even if missing):
-  {
-    "<kpi_code>": { "raw_value": str|None, "raw_unit": str|None }
-  }
-- Extract only the FIRST occurrence.
-- Keep raw_value exactly as seen in the text (e.g. "123,400", "1.2 million").
-- Keep raw_unit exactly as seen (e.g. "tCO2e", "MWh", "m³").
-- If KPI not found, return: { "raw_value": null, "raw_unit": null }.
+- Keep raw_value as close as possible to the reported text.
+- Keep raw_unit exactly as reported when a unit is present.
+- For qualitative metrics, return the reported qualitative text in raw_value
+  and set raw_unit to null.
+- Do not infer missing values.
+- If a metric is not found, return:
+  {{ "raw_value": null, "raw_unit": null }}.
+- Do not return metrics that were not listed above.
 """
 
 
@@ -57,6 +103,7 @@ def extract_kpis_llm(
     if not api_key:
         logger.warning("llm: extractor disabled (missing OPENAI_API_KEY).")
         return {}
+    system_prompt = _build_system_prompt(kpi_schema)
 
     client = OpenAI(api_key=api_key)
     logger.info("llm: querying model %s", model)
@@ -68,7 +115,7 @@ def extract_kpis_llm(
         completion = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": text},
             ],
             temperature=0.0,

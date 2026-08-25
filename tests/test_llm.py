@@ -46,3 +46,61 @@ def test_llm_extractor_and_normalizer():
 
     assert norm["total_ghg_emissions"]["value"] == 123400.0
     assert norm["total_ghg_emissions"]["unit"] == "tCO2e"
+
+
+@patch.dict(os.environ, {"OPENAI_API_KEY": "dummy"})
+@patch("openai.resources.chat.completions.Completions.create")
+def test_llm_prompt_is_schema_guided(mock_create):
+    mock_create.return_value = MockCompletion()
+
+    kpis = load_kpis()
+
+    extract_kpis_llm(
+        "dummy text",
+        kpis,
+    )
+
+    request = mock_create.call_args.kwargs
+    system_prompt = request["messages"][0]["content"]
+
+    for code in kpis:
+        assert code in system_prompt
+
+    assert "water_consumption" in system_prompt
+    assert "water_stress_share" in system_prompt
+    assert "water_dependency" in system_prompt
+
+    assert "fraction" in system_prompt
+    assert "qualitative" in system_prompt.lower()
+
+
+@patch.dict(os.environ, {"OPENAI_API_KEY": "dummy"})
+@patch("openai.resources.chat.completions.Completions.create")
+def test_llm_prompt_respects_schema_subset(mock_create):
+    mock_create.return_value = MockCompletion()
+
+    kpis = load_kpis()
+
+    subset = {
+        code: kpis[code]
+        for code in [
+            "water_consumption",
+            "water_dependency",
+        ]
+    }
+
+    extract_kpis_llm(
+        "dummy text",
+        subset,
+    )
+
+    request = mock_create.call_args.kwargs
+    system_prompt = request["messages"][0]["content"]
+
+    assert "water_consumption" in system_prompt
+    assert "water_dependency" in system_prompt
+
+    assert "total_ghg_emissions" not in system_prompt
+    assert "energy_consumption" not in system_prompt
+    assert "water_withdrawal" not in system_prompt
+    assert "water_stress_share" not in system_prompt
