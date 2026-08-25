@@ -7,6 +7,11 @@ from esg.normalization.table_grid_normalizer import (
     normalize_table_grid_result,
 )
 
+from esg.extractors.table_plain_extractor import extract_kpis_tables_plain
+from esg.normalization.table_plain_normalizer import (
+    normalize_table_plain_result,
+)
+
 
 def run_benchmark_method(
     pdf_path: str,
@@ -20,17 +25,28 @@ def run_benchmark_method(
     This runner deliberately performs no fusion, reconciliation,
     ground-truth access, or benchmark scoring.
     """
-    if method != "table_grid":
-        raise ValueError(
-            f"Unsupported benchmark extraction method: {method}"
+    if method == "table_grid":
+        raw = extract_kpis_tables_grid(
+            pdf_path,
+            kpi_schema,
         )
 
-    raw = extract_kpis_tables_grid(
-        pdf_path,
-        kpi_schema,
-    )
+        return normalize_table_grid_result(
+            raw,
+            kpi_schema,
+        )
 
-    return normalize_table_grid_result(
-        raw,
-        kpi_schema,
+    if method == "table_plain":
+        raw = extract_kpis_tables_plain(
+            pdf_path,
+            kpi_schema,
+        )
+
+        return normalize_table_plain_result(
+            raw,
+            kpi_schema,
+        )
+
+    raise ValueError(
+        f"Unsupported benchmark extraction method: {method}"
     )

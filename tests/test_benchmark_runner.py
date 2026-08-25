@@ -4,6 +4,8 @@ from esg.benchmark.generator import generate_benchmark_pdfs
 from esg.benchmark.runner import run_benchmark_method
 from esg.config import load_config
 
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 
 TRUTH_PATH = Path("data/benchmark/truth/benchmark_truth.yaml")
 CASES_PATH = Path("data/benchmark/cases/benchmark_cases.yaml")
@@ -47,3 +49,57 @@ def test_run_benchmark_method_table_grid(tmp_path):
 
     assert predictions["water_dependency"]["value"] == "high dependency"
     assert predictions["water_dependency"]["unit"] is None
+
+
+def test_run_benchmark_method_table_plain_has_no_structured_table_hits(
+    tmp_path,
+):
+    generated = generate_benchmark_pdfs(
+        TRUTH_PATH,
+        CASES_PATH,
+        tmp_path,
+    )
+
+    alpha_table = next(
+        path
+        for path in generated
+        if path.name == "alpha_structured_table.pdf"
+    )
+
+    schema = load_config().universal_kpis
+
+    predictions = run_benchmark_method(
+        str(alpha_table),
+        method="table_plain",
+        kpi_schema=schema,
+    )
+
+    assert predictions == {}
+
+
+def test_run_benchmark_method_table_plain_pipe_row(tmp_path):
+    pdf_path = tmp_path / "plain_table.pdf"
+
+    pdf = canvas.Canvas(
+        str(pdf_path),
+        pagesize=A4,
+    )
+    pdf.drawString(
+        72,
+        760,
+        "Total water withdrawal | m3 | 1,200,000",
+    )
+    pdf.save()
+
+    schema = load_config().universal_kpis
+
+    predictions = run_benchmark_method(
+        str(pdf_path),
+        method="table_plain",
+        kpi_schema=schema,
+    )
+
+    water = predictions["water_withdrawal"]
+
+    assert water["value"] == 1_200_000.0
+    assert water["unit"] == "m3"
