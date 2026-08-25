@@ -16,6 +16,9 @@ from esg.extractors.regex_extractor import extract_kpis_regex
 from esg.normalization.regex_normalizer import normalize_regex_result
 from esg.utils.pdf_reader import extract_text
 
+from esg.extractors.nlp_extractor import extract_kpis_nlp
+from esg.normalization.nlp_normalizer import normalize_nlp_result
+
 
 def run_benchmark_method(
     pdf_path: str,
@@ -59,6 +62,18 @@ def run_benchmark_method(
         )
 
         return normalize_regex_result(
+            raw,
+            kpi_schema,
+        )
+    if method == "nlp":
+        text = extract_text(pdf_path)
+
+        raw = extract_kpis_nlp(
+            text,
+            kpi_schema,
+        )
+
+        return normalize_nlp_result(
             raw,
             kpi_schema,
         )
