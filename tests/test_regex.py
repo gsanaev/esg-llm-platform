@@ -140,29 +140,7 @@ def test_regex_shared_unit_does_not_use_stale_metric_context():
 
 
 def test_regex_percentage_metric_requires_local_semantic_context():
-    kpi_schema = {
-        "water_stress_share": {
-            "display_name": "Water Stress Share",
-            "value_type": "quantitative",
-            "canonical_unit": "fraction",
-            "accepted_units": [
-                "fraction",
-                "%",
-                "percent",
-                "percentage",
-            ],
-            "synonyms": [
-                "water stress share",
-                "share in water-stressed areas",
-                "share of water use in water-stressed areas",
-            ],
-            "keywords": [
-                "water stress",
-                "water-stressed areas",
-            ],
-            "requires_metric_context": True,
-        }
-    }
+    kpi_schema = load_kpis()
 
     unrelated_text = (
         "Renewable electricity increased to 38%."

@@ -83,3 +83,25 @@ def test_fraction_share_is_not_rescaled(normalizer):
 
     assert result["value"] == pytest.approx(0.38)
     assert result["unit"] == "fraction"
+
+
+def test_table_grid_share_does_not_restore_reported_percent_unit():
+    raw = {
+        "water_stress_share": {
+            "raw_value": "38",
+            "raw_unit": "%",
+            "value": "38",
+            "unit": "%",
+            "confidence": 0.9,
+        }
+    }
+
+    normalized = normalize_table_grid_result(
+        raw,
+        WATER_STRESS_SCHEMA,
+    )
+
+    result = normalized["water_stress_share"]
+
+    assert result["value"] == pytest.approx(0.38)
+    assert result["unit"] == "fraction"

@@ -257,3 +257,79 @@ def test_pipeline_distinguishes_water_withdrawal_and_consumption(tmp_path):
     assert consumption.status == "accepted"
     assert consumption.conflict_flag is False
     assert consumption.review_required is False
+
+
+def test_pipeline_normalizes_water_stress_share(tmp_path):
+    pdf_path = tmp_path / "water_stress_pipeline.pdf"
+
+    doc = SimpleDocTemplate(str(pdf_path), pagesize=A4)
+
+    data = [
+        ["KPI", "Unit", "2024"],
+        ["Total GHG emissions", "tCO2e", "123,400"],
+        ["Total energy consumption", "MWh", "500,000"],
+        ["Total water withdrawal", "m3", "1,200,000"],
+        ["Total water consumption", "m3", "800,000"],
+        ["Water stress share", "%", "38"],
+    ]
+
+    table = Table(data)
+    table.setStyle(
+        TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ]
+        )
+    )
+
+    doc.build([table])
+
+    pipeline = ESGPipelineV2()
+
+    results, evidence = pipeline.run_on_pdf_with_evidence(
+        str(pdf_path)
+    )
+
+    by_code = {
+        result.code: result
+        for result in results
+    }
+
+    stress = by_code["water_stress_share"]
+
+    assert stress.value == 0.38
+    assert stress.unit == "fraction"
+
+    stress_evidence = [
+        candidate
+        for candidate in evidence
+        if candidate.metric == "water_stress_share"
+    ]
+
+    assert stress_evidence
+    assert all(
+        candidate.value_normalized == 0.38
+        for candidate in stress_evidence
+    )
+    assert all(
+        candidate.unit_normalized == "fraction"
+        for candidate in stress_evidence
+    )
+
+    reconciled = pipeline.run_on_pdf_reconciled(
+        str(pdf_path)
+    )
+
+    by_metric = {
+        result.metric: result
+        for result in reconciled
+    }
+
+    stress = by_metric["water_stress_share"]
+
+    assert stress.value == 0.38
+    assert stress.unit == "fraction"
+    assert stress.status == "accepted"
+    assert stress.conflict_flag is False
+    assert stress.review_required is False
+    assert stress.supporting_evidence

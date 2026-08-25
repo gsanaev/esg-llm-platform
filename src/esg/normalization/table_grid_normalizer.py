@@ -82,27 +82,27 @@ def normalize_table_grid_result(
         else:
             unit = None
 
-        # a) extractor already resolved a canonical unit
-        if reported_unit in allowed_units:
-            unit = reported_unit
+            # a) extractor already resolved a canonical unit
+            if reported_unit in allowed_units:
+                unit = reported_unit
 
-        # b) try raw_unit against allowed units
-        if unit is None and raw_unit:
-            norm_ru = _normalize_unit_token(raw_unit)
-            for u in allowed_units:
-                if norm_ru == _normalize_unit_token(u):
-                    unit = u
-                    break
+            # b) try raw_unit against allowed units
+            if unit is None and raw_unit:
+                norm_ru = _normalize_unit_token(raw_unit)
+                for u in allowed_units:
+                    if norm_ru == _normalize_unit_token(u):
+                        unit = u
+                        break
 
-        # c) if only a single allowed unit exists, pick it deterministically
-        if unit is None and len(allowed_units) == 1:
-            unit = allowed_units[0]
+            # c) if only a single allowed unit exists, pick it deterministically
+            if unit is None and len(allowed_units) == 1:
+                unit = allowed_units[0]
 
-        # d) if we still have no unit but we *do* have a numeric value and
-        #    there are allowed units, choose the first as a deterministic
-        #    fallback (prevents None-units in common test cases)
-        if unit is None and value is not None and allowed_units:
-            unit = allowed_units[0]
+            # d) if we still have no unit but we do have a numeric value and
+            #    there are allowed units, choose the first as a deterministic
+            #    fallback
+            if unit is None and value is not None and allowed_units:
+                unit = allowed_units[0]
 
         normalized_entry = {
             "raw_value": raw_value,
