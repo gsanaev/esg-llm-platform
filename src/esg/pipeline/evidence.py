@@ -32,10 +32,13 @@ def normalized_results_to_evidence(
                 metric=metric,
                 source_document=source_document,
                 extraction_method=extraction_method,
+                company_id=entry.get("company_id"),
                 value_raw=entry.get("raw_value"),
                 value_normalized=entry.get("value"),
                 unit_raw=entry.get("raw_unit"),
                 unit_normalized=entry.get("unit"),
+                year=entry.get("year"),
+                location=entry.get("location"),
                 extraction_score=score_data.get("score"),
                 page=entry.get("page"),
                 source_context=entry.get("source_context"),
@@ -75,9 +78,29 @@ def raw_candidate_results_to_evidence(
                 kpi_schema,
             )
 
+            normalized_entry = normalized.get(metric)
+
+            if not normalized_entry:
+                continue
+
+            merged_entry = dict(normalized_entry)
+
+            for field in (
+                "company_id",
+                "year",
+                "location",
+                "page",
+                "source_context",
+            ):
+                if (
+                    merged_entry.get(field) is None
+                    and entry.get(field) is not None
+                ):
+                    merged_entry[field] = entry.get(field)
+
             evidence.extend(
                 normalized_results_to_evidence(
-                    normalized,
+                    {metric: merged_entry},
                     source_document=source_document,
                     extraction_method=extraction_method,
                 )
