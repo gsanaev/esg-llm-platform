@@ -7,7 +7,11 @@ from typing import Any, Dict, Mapping, Optional
 from esg.utils.numeric_parser import parse_locale_number
 from esg.normalization.scoring import compute_extraction_score
 
-from esg.core.schema import get_accepted_units
+from esg.core.schema import (
+    get_accepted_units,
+    get_canonical_unit,
+)
+from esg.normalization.share import normalize_fraction_share
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +56,9 @@ def normalize_table_grid_result(
         confidence = float(entry.get("confidence", 0.9))
 
         allowed_units = get_accepted_units(kpi_schema.get(code, {}))
+        canonical_unit = get_canonical_unit(
+            kpi_schema.get(code, {})
+        )
 
         # ---------------------------------------------------------
         # 1) Number parsing
@@ -64,7 +71,16 @@ def normalize_table_grid_result(
         # ---------------------------------------------------------
         # 2) Unit normalization
         # ---------------------------------------------------------
-        unit = None
+        share_result = normalize_fraction_share(
+            value,
+            raw_unit,
+            canonical_unit,
+        )
+
+        if share_result is not None:
+            value, unit = share_result
+        else:
+            unit = None
 
         # a) extractor already resolved a canonical unit
         if reported_unit in allowed_units:

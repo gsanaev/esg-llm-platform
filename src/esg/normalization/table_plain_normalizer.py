@@ -6,7 +6,11 @@ from typing import Any, Dict, Mapping
 from esg.utils.numeric_parser import parse_locale_number
 from esg.normalization.scoring import compute_extraction_score
 
-from esg.core.schema import get_accepted_units
+from esg.core.schema import (
+    get_accepted_units,
+    get_canonical_unit,
+)
+from esg.normalization.share import normalize_fraction_share
 
 def _norm_unit(u: str) -> str:
     """Normalize unit for comparison."""
@@ -48,18 +52,30 @@ def normalize_table_plain_result(
 
         # ---- Unit resolution ----
         allowed_units = get_accepted_units(kpi_schema.get(code, {}))
-        unit = None
+        canonical_unit = get_canonical_unit(
+            kpi_schema.get(code, {})
+        )
+        share_result = normalize_fraction_share(
+            value,
+            raw_unit,
+            canonical_unit,
+        )
 
-        if raw_unit and allowed_units:
-            ru = _norm_unit(raw_unit)
-            for u in allowed_units:
-                if ru == _norm_unit(u):
-                    unit = u
-                    break
+        if share_result is not None:
+            value, unit = share_result
+        else:
+            unit = None
 
-        # If still missing and there is exactly one allowed unit
-        if unit is None and len(allowed_units) == 1:
-            unit = allowed_units[0]
+            if raw_unit and allowed_units:
+                ru = _norm_unit(raw_unit)
+                for u in allowed_units:
+                    if ru == _norm_unit(u):
+                        unit = u
+                        break
+
+            # If still missing and there is exactly one allowed unit
+            if unit is None and len(allowed_units) == 1:
+                unit = allowed_units[0]
 
         normalized_entry = {
             "raw_value": raw_value,

@@ -8,6 +8,7 @@ from esg.utils.numeric_parser import parse_scaled_number
 from esg.normalization.scoring import compute_extraction_score
 
 from esg.core.schema import get_accepted_units, get_canonical_unit
+from esg.normalization.share import normalize_fraction_share
 
 logger = logging.getLogger(__name__)
 
@@ -159,8 +160,20 @@ def normalize_regex_result(
 
             
         # --- Unit normalization & conversion ---
-        unit, factor = _normalize_unit(raw_unit, canonical_unit)
-        final_value = value * factor
+        share_result = normalize_fraction_share(
+            value,
+            raw_unit,
+            canonical_unit,
+        )
+
+        if share_result is not None:
+            final_value, unit = share_result
+        else:
+            unit, factor = _normalize_unit(
+                raw_unit,
+                canonical_unit,
+            )
+            final_value = value * factor
 
         normalized_entry = {
             **entry,

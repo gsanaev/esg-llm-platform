@@ -238,10 +238,14 @@ def extract_kpis_regex(
         units = get_accepted_units(meta)
         if not units:
             continue
-        require_metric_owner = _has_shared_units(
-            code,
-            units,
-            kpi_schema,
+
+        require_metric_owner = (
+            bool(meta.get("requires_metric_context", False))
+            or _has_shared_units(
+                code,
+                units,
+                kpi_schema,
+            )
         )
 
         # Build 3 patterns
@@ -339,10 +343,13 @@ def extract_kpi_candidates_regex(
         if not units:
             continue
 
-        require_metric_owner = _has_shared_units(
-            code,
-            units,
-            kpi_schema,
+        require_metric_owner = (
+            bool(meta.get("requires_metric_context", False))
+            or _has_shared_units(
+                code,
+                units,
+                kpi_schema,
+            )
         )
 
         patterns = [
