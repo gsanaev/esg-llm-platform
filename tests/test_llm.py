@@ -104,3 +104,42 @@ def test_llm_prompt_respects_schema_subset(mock_create):
     assert "energy_consumption" not in system_prompt
     assert "water_withdrawal" not in system_prompt
     assert "water_stress_share" not in system_prompt
+
+
+def test_llm_normalizer_supports_share_and_qualitative_values():
+    kpis = load_kpis()
+
+    raw = {
+        "water_consumption": {
+            "raw_value": "800,000",
+            "raw_unit": "m3",
+            "confidence": 0.75,
+        },
+        "water_stress_share": {
+            "raw_value": "38",
+            "raw_unit": "%",
+            "confidence": 0.75,
+        },
+        "water_dependency": {
+            "raw_value": "High dependency",
+            "raw_unit": None,
+            "confidence": 0.75,
+        },
+    }
+
+    normalized = normalize_llm_result(
+        raw,
+        kpis,
+    )
+
+    consumption = normalized["water_consumption"]
+    assert consumption["value"] == 800_000.0
+    assert consumption["unit"] == "m3"
+
+    stress = normalized["water_stress_share"]
+    assert stress["value"] == 0.38
+    assert stress["unit"] == "fraction"
+
+    dependency = normalized["water_dependency"]
+    assert dependency["value"] == "high dependency"
+    assert dependency["unit"] is None

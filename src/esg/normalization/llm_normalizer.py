@@ -6,7 +6,11 @@ from typing import Any, Dict, Mapping
 from esg.utils.numeric_parser import parse_scaled_number
 from esg.normalization.scoring import compute_extraction_score
 
-from esg.core.schema import get_accepted_units
+from esg.core.schema import (
+    get_accepted_units,
+    get_canonical_unit,
+)
+from esg.normalization.share import normalize_fraction_share
 
 def _norm_unit_token(u: str) -> str:
     return u.lower().replace(" ", "").replace("³", "3")
@@ -42,23 +46,56 @@ def normalize_llm_result(
         raw_unit = entry.get("raw_unit")
         confidence = float(entry.get("confidence", 0.75))
 
-        allowed_units = get_accepted_units(kpi_schema.get(code, {}))
+        meta = kpi_schema.get(code, {})
+        value_type = str(
+            meta.get("value_type", "quantitative")
+        )
 
-        # ---- Value parsing (with scaling) ----
-        value = parse_scaled_number(raw_value)
+        allowed_units = get_accepted_units(meta)
+        canonical_unit = get_canonical_unit(meta)
 
-        # ---- Unit resolution ----
-        unit = None
+        # ---- Value normalization ----
+        if value_type == "qualitative":
+            if raw_value is None:
+                value = None
+            else:
+                normalized_text = " ".join(
+                    str(raw_value).split()
+                ).strip()
 
-        if raw_unit:
-            ru = _norm_unit_token(raw_unit)
-            for u in allowed_units:
-                if ru == _norm_unit_token(u):
-                    unit = u
-                    break
+                value = (
+                    normalized_text.lower()
+                    if normalized_text
+                    else None
+                )
 
-        if unit is None and len(allowed_units) == 1:
-            unit = allowed_units[0]
+            unit = None
+
+        else:
+            value = parse_scaled_number(raw_value)
+
+            share_result = normalize_fraction_share(
+                value,
+                raw_unit,
+                canonical_unit,
+            )
+
+            if share_result is not None:
+                value, unit = share_result
+
+            else:
+                # ---- Unit resolution ----
+                unit = None
+
+                if raw_unit:
+                    ru = _norm_unit_token(raw_unit)
+                    for u in allowed_units:
+                        if ru == _norm_unit_token(u):
+                            unit = u
+                            break
+
+                if unit is None and len(allowed_units) == 1:
+                    unit = allowed_units[0]
 
         normalized_entry = {
             "raw_value": raw_value,
