@@ -13,6 +13,12 @@ companies:
       water_withdrawal:
         value: 1200000.0
         unit: "m3"
+      water_consumption:
+        value: 800000.0
+        unit: "m3"
+      water_stress_share:
+        value: 0.38
+        unit: "fraction"
 
   - company_id: "synthetic_beta"
     reporting_year: 2024
@@ -26,3 +32,9 @@ companies:
       water_withdrawal:
         value: 740000.0
         unit: "m3"
+      water_consumption:
+        value: 510000.0
+        unit: "m3"
+      water_stress_share:
+        value: 0.62
+        unit: "fraction"

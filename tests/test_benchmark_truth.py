@@ -28,3 +28,23 @@ def test_load_benchmark_truth():
         "value": 1200000.0,
         "unit": "m3",
     }
+    assert alpha["metrics"]["water_consumption"] == {
+        "value": 800000.0,
+        "unit": "m3",
+    }
+    assert alpha["metrics"]["water_stress_share"] == {
+        "value": 0.38,
+        "unit": "fraction",
+    }
+
+    beta = truth["companies"][1]
+
+    assert beta["company_id"] == "synthetic_beta"
+    assert beta["metrics"]["water_consumption"] == {
+        "value": 510000.0,
+        "unit": "m3",
+    }
+    assert beta["metrics"]["water_stress_share"] == {
+        "value": 0.62,
+        "unit": "fraction",
+    }

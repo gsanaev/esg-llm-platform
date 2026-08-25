@@ -18,12 +18,16 @@ _METRIC_ORDER = (
     "total_ghg_emissions",
     "energy_consumption",
     "water_withdrawal",
+    "water_consumption",
+    "water_stress_share",
 )
 
 _METRIC_LABELS = {
     "total_ghg_emissions": "Total GHG emissions",
     "energy_consumption": "Total energy consumption",
     "water_withdrawal": "Total water withdrawal",
+    "water_consumption": "Total water consumption",
+    "water_stress_share": "Water stress share",
 }
 
 _NARRATIVE_TEMPLATES = {
@@ -39,12 +43,25 @@ _NARRATIVE_TEMPLATES = {
         "Total water withdrawal across operations "
         "was {value} {unit}."
     ),
+    "water_consumption": (
+        "Total water consumption across operations "
+        "was {value} {unit}."
+    ),
+    "water_stress_share": (
+        "The share of water use in water-stressed areas "
+        "was {value} {unit}."
+    )
 }
 
 # Disclosure-side conversions are deliberately independent from extraction
 # normalization. Only conversions required by benchmark cases belong here.
 _DISCLOSURE_UNIT_FACTORS = {
     ("energy_consumption", "MWh", "GWh"): 1 / 1000,
+    ("water_stress_share", "fraction", "%"): 100,
+}
+
+_DEFAULT_DISCLOSURE_UNITS = {
+    "water_stress_share": "%",
 }
 
 
@@ -92,7 +109,13 @@ def _prepare_disclosure_value(
     source_unit = str(entry["unit"])
 
     unit_overrides = case.get("unit_overrides") or {}
-    target_unit = str(unit_overrides.get(metric, source_unit))
+    default_unit = _DEFAULT_DISCLOSURE_UNITS.get(
+        metric,
+        source_unit,
+    )
+    target_unit = str(
+        unit_overrides.get(metric, default_unit)
+    )
 
     if target_unit == source_unit:
         return value, source_unit

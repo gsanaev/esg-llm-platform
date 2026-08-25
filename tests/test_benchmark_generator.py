@@ -39,18 +39,31 @@ def test_generate_benchmark_pdfs(tmp_path):
     assert "123,400" in table_text
     assert "500,000" in table_text
     assert "1,200,000" in table_text
+    assert "Total water consumption" in table_text
+    assert "800,000" in table_text
+    assert "Water stress share" in table_text
+    assert "%" in table_text
+    assert "38" in table_text
 
     narrative_text = texts["alpha_clean_narrative.pdf"]
     assert "synthetic_alpha" in narrative_text
     assert "123,400" in narrative_text
     assert "500,000" in narrative_text
     assert "1,200,000" in narrative_text
+    assert "800,000" in narrative_text
+    assert "water-stressed areas" in narrative_text
+    assert "%" in narrative_text
+    assert "38" in narrative_text
 
     locale_text = texts["beta_locale_table.pdf"]
     assert "synthetic_beta" in locale_text
     assert "87.250" in locale_text
     assert "318.000" in locale_text
     assert "740.000" in locale_text
+    assert "510.000" in locale_text
+    assert "Water stress share" in locale_text
+    assert "%" in locale_text
+    assert "62" in locale_text
 
     mixed_text = texts["beta_mixed_units.pdf"]
     assert "synthetic_beta" in mixed_text
@@ -58,3 +71,7 @@ def test_generate_benchmark_pdfs(tmp_path):
     assert "318" in mixed_text
     assert "318,000" not in mixed_text
     assert "740,000" in mixed_text
+    assert "510,000" in mixed_text
+    assert "Water stress share" in mixed_text
+    assert "%" in mixed_text
+    assert "62" in mixed_text
