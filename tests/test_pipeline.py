@@ -427,3 +427,78 @@ def test_pipeline_preserves_facility_location_context(tmp_path):
         "Frankfurt facility",
         "Berlin facility",
     }
+
+
+def test_pipeline_preserves_qualitative_water_dependency(tmp_path):
+    pdf_path = tmp_path / "water_dependency_pipeline.pdf"
+
+    doc = SimpleDocTemplate(str(pdf_path), pagesize=A4)
+
+    data = [
+        ["KPI", "Unit", "2024"],
+        ["Water dependency", "", "High dependency"],
+    ]
+
+    table = Table(data)
+    table.setStyle(
+        TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ]
+        )
+    )
+
+    doc.build([table])
+
+    pipeline = ESGPipelineV2()
+
+    results, evidence = pipeline.run_on_pdf_with_evidence(
+        str(pdf_path)
+    )
+
+    dependency_evidence = [
+        candidate
+        for candidate in evidence
+        if (
+            candidate.metric == "water_dependency"
+            and candidate.extraction_method == "table_grid"
+        )
+    ]
+
+    assert len(dependency_evidence) == 1
+
+    candidate = dependency_evidence[0]
+
+    assert candidate.value_raw == "High dependency"
+    assert candidate.value_normalized == "high dependency"
+    assert candidate.unit_raw is None
+    assert candidate.unit_normalized is None
+
+    by_code = {
+        result.code: result
+        for result in results
+    }
+
+    dependency_legacy = by_code["water_dependency"]
+
+    assert dependency_legacy.value == "high dependency"
+    assert dependency_legacy.unit is None
+    assert dependency_legacy.source == ["table_grid"]
+
+    reconciled = pipeline.run_on_pdf_reconciled(
+        str(pdf_path)
+    )
+
+    by_metric = {
+        result.metric: result
+        for result in reconciled
+    }
+
+    dependency = by_metric["water_dependency"]
+
+    assert dependency.value == "high dependency"
+    assert dependency.unit is None
+    assert dependency.status == "accepted"
+    assert dependency.conflict_flag is False
+    assert dependency.review_required is False
+    assert dependency.supporting_evidence

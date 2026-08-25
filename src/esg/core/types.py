@@ -95,7 +95,7 @@ class KPIResult:
     """
 
     code: str
-    value: Optional[float]
+    value: Optional[float | str]
     unit: Optional[str]
     confidence: float
     source: List[str]
