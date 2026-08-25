@@ -16,6 +16,7 @@ def test_load_benchmark_truth():
 
     assert alpha["company_id"] == "synthetic_alpha"
     assert alpha["reporting_year"] == 2024
+    assert alpha["facility_location"] == "Frankfurt facility"
     assert alpha["metrics"]["total_ghg_emissions"] == {
         "value": 123400.0,
         "unit": "tCO2e",
@@ -44,6 +45,7 @@ def test_load_benchmark_truth():
     beta = truth["companies"][1]
 
     assert beta["company_id"] == "synthetic_beta"
+    assert beta["facility_location"] == "Berlin facility"
     assert beta["metrics"]["water_consumption"] == {
         "value": 510000.0,
         "unit": "m3",

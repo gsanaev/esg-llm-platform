@@ -46,6 +46,8 @@ def test_generate_benchmark_pdfs(tmp_path):
     assert "high dependency" in table_text
     assert "%" in table_text
     assert "38" in table_text
+    assert "Location" in table_text
+    assert "Frankfurt facility" in table_text
 
     narrative_text = texts["alpha_clean_narrative.pdf"]
     assert "synthetic_alpha" in narrative_text
@@ -57,6 +59,7 @@ def test_generate_benchmark_pdfs(tmp_path):
     assert "high dependency" in narrative_text
     assert "%" in narrative_text
     assert "38" in narrative_text
+    assert "Frankfurt facility" in narrative_text
 
     locale_text = texts["beta_locale_table.pdf"]
     assert "synthetic_beta" in locale_text
@@ -69,6 +72,7 @@ def test_generate_benchmark_pdfs(tmp_path):
     assert "moderate dependency" in locale_text
     assert "%" in locale_text
     assert "62" in locale_text
+    assert "Berlin facility" in locale_text
 
     mixed_text = texts["beta_mixed_units.pdf"]
     assert "synthetic_beta" in mixed_text
@@ -82,6 +86,7 @@ def test_generate_benchmark_pdfs(tmp_path):
     assert "moderate dependency" in mixed_text
     assert "%" in mixed_text
     assert "62" in mixed_text
+    assert "Berlin facility" in mixed_text
     assert all(
         "None" not in text
         for text in texts.values()

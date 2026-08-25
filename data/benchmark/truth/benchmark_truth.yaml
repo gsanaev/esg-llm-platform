@@ -3,6 +3,7 @@ benchmark_version: "2.0"
 companies:
   - company_id: "synthetic_alpha"
     reporting_year: 2024
+    facility_location: "Frankfurt facility"
     metrics:
       total_ghg_emissions:
         value: 123400.0
@@ -25,6 +26,7 @@ companies:
 
   - company_id: "synthetic_beta"
     reporting_year: 2024
+    facility_location: "Berlin facility"
     metrics:
       total_ghg_emissions:
         value: 87250.0

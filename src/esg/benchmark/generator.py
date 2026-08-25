@@ -158,10 +158,18 @@ def _build_table(
     case: Mapping[str, Any],
 ) -> Table:
     reporting_year = int(company["reporting_year"])
+    facility_location = str(company["facility_location"])
     metrics = company["metrics"]
     number_format = str(case.get("number_format", "en"))
 
-    rows = [["KPI", "Unit", str(reporting_year)]]
+    rows = [
+        [
+            "Location",
+            "KPI",
+            "Unit",
+            str(reporting_year),
+        ]
+    ]
 
     for metric in _METRIC_ORDER:
         value, unit = _prepare_disclosure_value(
@@ -171,6 +179,7 @@ def _build_table(
         )
         rows.append(
             [
+                facility_location,
                 _METRIC_LABELS[metric],
                 unit or "",
                 _format_value(value, number_format),
@@ -202,6 +211,15 @@ def _build_narrative(
     styles = getSampleStyleSheet()
 
     story: list[Paragraph | Spacer] = []
+    facility_location = str(company["facility_location"])
+
+    story.append(
+        Paragraph(
+            f"Facility location: {facility_location}.",
+            styles["BodyText"],
+        )
+    )
+    story.append(Spacer(1, 0.35 * cm))
 
     for metric in _METRIC_ORDER:
         value, unit = _prepare_disclosure_value(
