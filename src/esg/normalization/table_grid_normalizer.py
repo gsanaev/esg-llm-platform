@@ -55,54 +55,80 @@ def normalize_table_grid_result(
         reported_unit = entry.get("unit")
         confidence = float(entry.get("confidence", 0.9))
 
-        allowed_units = get_accepted_units(kpi_schema.get(code, {}))
-        canonical_unit = get_canonical_unit(
-            kpi_schema.get(code, {})
+        meta = kpi_schema.get(code, {})
+        value_type = str(
+            meta.get("value_type", "quantitative")
         )
 
-        # ---------------------------------------------------------
-        # 1) Number parsing
-        # ---------------------------------------------------------
-        if isinstance(reported_value, (int, float)):
-            value: Optional[float] = float(reported_value)
-        else:
-            value = parse_locale_number(raw_value)
+        allowed_units = get_accepted_units(meta)
+        canonical_unit = get_canonical_unit(meta)
 
         # ---------------------------------------------------------
-        # 2) Unit normalization
+        # 1) Value normalization
         # ---------------------------------------------------------
-        share_result = normalize_fraction_share(
-            value,
-            raw_unit,
-            canonical_unit,
-        )
+        if value_type == "qualitative":
+            if raw_value is None:
+                value = None
+            else:
+                normalized_text = " ".join(
+                    str(raw_value).split()
+                ).strip()
 
-        if share_result is not None:
-            value, unit = share_result
-        else:
+                value = (
+                    normalized_text.lower()
+                    if normalized_text
+                    else None
+                )
+
             unit = None
 
-            # a) extractor already resolved a canonical unit
-            if reported_unit in allowed_units:
-                unit = reported_unit
+        else:
+            # -----------------------------------------------------
+            # Quantitative number parsing
+            # -----------------------------------------------------
+            if isinstance(reported_value, (int, float)):
+                value: Optional[float] = float(reported_value)
+            else:
+                value = parse_locale_number(raw_value)
 
-            # b) try raw_unit against allowed units
-            if unit is None and raw_unit:
-                norm_ru = _normalize_unit_token(raw_unit)
-                for u in allowed_units:
-                    if norm_ru == _normalize_unit_token(u):
-                        unit = u
-                        break
+            # -----------------------------------------------------
+            # Quantitative unit normalization
+            # -----------------------------------------------------
+            share_result = normalize_fraction_share(
+                value,
+                raw_unit,
+                canonical_unit,
+            )
 
-            # c) if only a single allowed unit exists, pick it deterministically
-            if unit is None and len(allowed_units) == 1:
-                unit = allowed_units[0]
+            if share_result is not None:
+                value, unit = share_result
+            else:
+                unit = None
 
-            # d) if we still have no unit but we do have a numeric value and
-            #    there are allowed units, choose the first as a deterministic
-            #    fallback
-            if unit is None and value is not None and allowed_units:
-                unit = allowed_units[0]
+                # a) extractor already resolved a canonical unit
+                if reported_unit in allowed_units:
+                    unit = reported_unit
+
+                # b) try raw_unit against allowed units
+                if unit is None and raw_unit:
+                    norm_ru = _normalize_unit_token(raw_unit)
+                    for u in allowed_units:
+                        if norm_ru == _normalize_unit_token(u):
+                            unit = u
+                            break
+
+                # c) if only a single allowed unit exists, pick it
+                #    deterministically
+                if unit is None and len(allowed_units) == 1:
+                    unit = allowed_units[0]
+
+                # d) deterministic fallback for quantitative KPIs
+                if (
+                    unit is None
+                    and value is not None
+                    and allowed_units
+                ):
+                    unit = allowed_units[0]
 
         normalized_entry = {
             "raw_value": raw_value,

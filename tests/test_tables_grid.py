@@ -139,3 +139,45 @@ def test_table_grid_preserves_location_context(tmp_path):
     )
 
     assert legacy["water_withdrawal"]["location"] == "Berlin facility"
+
+
+def test_table_grid_normalizes_qualitative_water_dependency(tmp_path):
+    pdf_path = tmp_path / "water_dependency.pdf"
+
+    doc = SimpleDocTemplate(str(pdf_path), pagesize=A4)
+
+    data = [
+        ["KPI", "Unit", "2024"],
+        ["Water dependency", "", "High dependency"],
+    ]
+
+    table = Table(data)
+    table.setStyle(
+        TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ]
+        )
+    )
+
+    doc.build([table])
+
+    kpis = load_kpis()
+
+    raw = extract_kpis_tables_grid(
+        str(pdf_path),
+        kpis,
+    )
+
+    assert raw["water_dependency"]["raw_value"] == "High dependency"
+    assert raw["water_dependency"]["raw_unit"] is None
+
+    normalized = normalize_table_grid_result(
+        raw,
+        kpis,
+    )
+
+    dependency = normalized["water_dependency"]
+
+    assert dependency["value"] == "high dependency"
+    assert dependency["unit"] is None

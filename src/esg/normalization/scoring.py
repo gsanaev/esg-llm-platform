@@ -6,7 +6,7 @@ from typing import Any, Iterable, Optional
 
 def compute_extraction_score(
     *,
-    parsed_value: Optional[float],
+    parsed_value: Optional[float | str],
     raw_value: Optional[str],
     unit: Optional[str],
     allowed_units: Iterable[str],

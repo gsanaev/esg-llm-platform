@@ -66,12 +66,21 @@ def test_universal_kpi_schema_has_explicit_v2_contract():
         "water_withdrawal",
         "water_consumption",
         "water_stress_share",
+        "water_dependency",
     }
 
     for code, meta in schema.items():
-        assert meta["value_type"] == "quantitative"
-        assert meta["canonical_unit"]
-        assert meta["canonical_unit"] in meta["accepted_units"]
-        assert meta["accepted_units"]
+        assert meta["value_type"] in {
+            "quantitative",
+            "qualitative",
+        }
         assert meta["synonyms"]
         assert meta["keywords"]
+
+        if meta["value_type"] == "quantitative":
+            assert meta["canonical_unit"]
+            assert meta["canonical_unit"] in meta["accepted_units"]
+            assert meta["accepted_units"]
+        else:
+            assert meta["canonical_unit"] is None
+            assert meta["accepted_units"] == []

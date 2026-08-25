@@ -82,5 +82,22 @@
       "water-stressed areas"
     ],
     "requires_metric_context": true
+  },
+
+  "water_dependency": {
+    "display_name": "Water Dependency",
+    "value_type": "qualitative",
+    "canonical_unit": null,
+    "accepted_units": [],
+    "synonyms": [
+      "water dependency",
+      "dependency on water resources",
+      "dependence on water resources"
+    ],
+    "keywords": [
+      "water dependency",
+      "water resources",
+      "groundwater dependency"
+    ]
   }
 }

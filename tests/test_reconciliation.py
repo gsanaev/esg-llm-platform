@@ -222,3 +222,33 @@ def test_reconciliation_flags_incompatible_normalized_units():
     assert result.unit is None
     assert result.conflict_flag is True
     assert result.review_required is True
+
+
+def test_reconciliation_accepts_agreeing_qualitative_evidence():
+    evidence = [
+        EvidenceCandidate(
+            metric="water_dependency",
+            value_raw="High dependency",
+            value_normalized="high dependency",
+            source_document="report.pdf",
+            extraction_method="table_grid",
+        ),
+        EvidenceCandidate(
+            metric="water_dependency",
+            value_raw="high dependency",
+            value_normalized="high dependency",
+            source_document="report.pdf",
+            extraction_method="nlp",
+        ),
+    ]
+
+    result = reconcile_metric_evidence(
+        "water_dependency",
+        evidence,
+    )
+
+    assert result.value == "high dependency"
+    assert result.unit is None
+    assert result.status == "accepted"
+    assert result.conflict_flag is False
+    assert result.review_required is False
