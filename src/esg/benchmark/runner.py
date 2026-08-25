@@ -19,6 +19,9 @@ from esg.utils.pdf_reader import extract_text
 from esg.extractors.nlp_extractor import extract_kpis_nlp
 from esg.normalization.nlp_normalizer import normalize_nlp_result
 
+from esg.extractors.llm_extractor import extract_kpis_llm
+from esg.normalization.llm_normalizer import normalize_llm_result
+
 
 def run_benchmark_method(
     pdf_path: str,
@@ -74,6 +77,18 @@ def run_benchmark_method(
         )
 
         return normalize_nlp_result(
+            raw,
+            kpi_schema,
+        )
+    if method == "llm":
+        text = extract_text(pdf_path)
+
+        raw = extract_kpis_llm(
+            text,
+            kpi_schema,
+        )
+
+        return normalize_llm_result(
             raw,
             kpi_schema,
         )
