@@ -64,6 +64,7 @@ def test_universal_kpi_schema_has_explicit_v2_contract():
         "total_ghg_emissions",
         "energy_consumption",
         "water_withdrawal",
+        "water_consumption",
     }
 
     for code, meta in schema.items():

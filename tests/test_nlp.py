@@ -144,21 +144,6 @@ def test_nlp_candidates_preserve_single_unambiguous_weak_match():
 def test_nlp_distinguishes_water_withdrawal_from_consumption():
     kpis = load_kpis()
 
-    kpis["water_consumption"] = {
-        "display_name": "Water Consumption",
-        "value_type": "quantitative",
-        "canonical_unit": "m3",
-        "accepted_units": ["m3", "m³", "cubic meters"],
-        "synonyms": [
-            "water consumption",
-            "total water consumption",
-        ],
-        "keywords": [
-            "water consumption",
-            "water consumed",
-        ],
-    }
-
     text = (
         "Total water withdrawal was 1,200,000 m3. "
         "Total water consumption was 800,000 m3."

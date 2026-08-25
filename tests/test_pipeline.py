@@ -1,5 +1,6 @@
 # tests/test_pipeline.py
 from pathlib import Path
+import pytest
 from esg.pipeline.pipeline import ESGPipelineV2, run_pipeline
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -7,6 +8,13 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 
 PDF_TABLE = Path("data/samples/esg_simple_table.pdf")   # updated
 PDF_NLP_ONLY = Path("data/samples/esg_simple_text.pdf") # updated
+
+@pytest.fixture(autouse=True)
+def disable_llm_api(monkeypatch):
+    """
+    Keep pipeline tests deterministic and independent of external API access.
+    """
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
 
 def test_pipeline_end_to_end():
@@ -166,3 +174,86 @@ def test_pipeline_produces_reconciled_results():
     assert ghg.conflict_flag is False
     assert ghg.review_required is False
     assert ghg.supporting_evidence
+
+
+def test_pipeline_distinguishes_water_withdrawal_and_consumption(tmp_path):
+    pdf_path = tmp_path / "water_metrics_pipeline.pdf"
+
+    doc = SimpleDocTemplate(str(pdf_path), pagesize=A4)
+
+    data = [
+        ["KPI", "Unit", "2024"],
+        ["Total GHG emissions", "tCO2e", "123,400"],
+        ["Total energy consumption", "MWh", "500,000"],
+        ["Total water withdrawal", "m3", "1,200,000"],
+        ["Total water consumption", "m3", "800,000"],
+    ]
+
+    table = Table(data)
+    table.setStyle(
+        TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ]
+        )
+    )
+
+    doc.build([table])
+
+    pipeline = ESGPipelineV2()
+
+    results, evidence = pipeline.run_on_pdf_with_evidence(
+        str(pdf_path)
+    )
+
+    by_code = {
+        result.code: result
+        for result in results
+    }
+
+    assert by_code["water_withdrawal"].value == 1_200_000.0
+    assert by_code["water_consumption"].value == 800_000.0
+
+    withdrawal_values = {
+        candidate.value_normalized
+        for candidate in evidence
+        if candidate.metric == "water_withdrawal"
+        and candidate.value_normalized is not None
+    }
+
+    consumption_values = {
+        candidate.value_normalized
+        for candidate in evidence
+        if candidate.metric == "water_consumption"
+        and candidate.value_normalized is not None
+    }
+
+    assert 1_200_000.0 in withdrawal_values
+    assert 800_000.0 not in withdrawal_values
+
+    assert 800_000.0 in consumption_values
+    assert 1_200_000.0 not in consumption_values
+
+    reconciled = pipeline.run_on_pdf_reconciled(
+        str(pdf_path)
+    )
+
+    by_metric = {
+        result.metric: result
+        for result in reconciled
+    }
+
+    withdrawal = by_metric["water_withdrawal"]
+    consumption = by_metric["water_consumption"]
+
+    assert withdrawal.value == 1_200_000.0
+    assert withdrawal.unit == "m3"
+    assert withdrawal.status == "accepted"
+    assert withdrawal.conflict_flag is False
+    assert withdrawal.review_required is False
+
+    assert consumption.value == 800_000.0
+    assert consumption.unit == "m3"
+    assert consumption.status == "accepted"
+    assert consumption.conflict_flag is False
+    assert consumption.review_required is False

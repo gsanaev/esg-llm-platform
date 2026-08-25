@@ -84,21 +84,6 @@ def test_regex_candidates_deduplicate_overlapping_patterns():
 def test_regex_distinguishes_water_withdrawal_from_consumption():
     kpi_schema = load_kpis()
 
-    kpi_schema["water_consumption"] = {
-        "display_name": "Water Consumption",
-        "value_type": "quantitative",
-        "canonical_unit": "m3",
-        "accepted_units": ["m3", "m³", "cubic meters"],
-        "synonyms": [
-            "water consumption",
-            "total water consumption",
-        ],
-        "keywords": [
-            "water consumption",
-            "water consumed",
-        ],
-    }
-
     text = (
         "Total water withdrawal was 1,200,000 m3. "
         "Total water consumption was 800,000 m3."
@@ -130,21 +115,6 @@ def test_regex_distinguishes_water_withdrawal_from_consumption():
 
 def test_regex_shared_unit_does_not_use_stale_metric_context():
     kpi_schema = load_kpis()
-
-    kpi_schema["water_consumption"] = {
-        "display_name": "Water Consumption",
-        "value_type": "quantitative",
-        "canonical_unit": "m3",
-        "accepted_units": ["m3", "m³", "cubic meters"],
-        "synonyms": [
-            "water consumption",
-            "total water consumption",
-        ],
-        "keywords": [
-            "water consumption",
-            "water consumed",
-        ],
-    }
 
     text = (
         "Water withdrawal was discussed earlier. "

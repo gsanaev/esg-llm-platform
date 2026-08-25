@@ -44,5 +44,20 @@
       "water use",
       "water extracted"
     ]
+  },
+
+  "water_consumption": {
+    "display_name": "Water Consumption",
+    "value_type": "quantitative",
+    "canonical_unit": "m3",
+    "accepted_units": ["m3", "m³", "cubic meters"],
+    "synonyms": [
+      "water consumption",
+      "total water consumption"
+    ],
+    "keywords": [
+      "water consumption",
+      "water consumed"
+    ]
   }
 }
