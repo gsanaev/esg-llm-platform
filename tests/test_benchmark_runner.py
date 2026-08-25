@@ -35,6 +35,12 @@ def test_run_benchmark_method_table_grid(tmp_path):
         method="table_grid",
         kpi_schema=schema,
     )
+    locations = {
+        entry.get("location")
+        for entry in predictions.values()
+    }
+
+    assert locations == {"Frankfurt facility"}
 
     assert predictions["total_ghg_emissions"]["value"] == 123_400.0
     assert predictions["total_ghg_emissions"]["unit"] == "tCO2e"
