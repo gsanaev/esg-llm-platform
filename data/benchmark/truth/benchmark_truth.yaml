@@ -19,6 +19,9 @@ companies:
       water_stress_share:
         value: 0.38
         unit: "fraction"
+      water_dependency:
+        value: "high dependency"
+        unit: null
 
   - company_id: "synthetic_beta"
     reporting_year: 2024
@@ -38,3 +41,6 @@ companies:
       water_stress_share:
         value: 0.62
         unit: "fraction"
+      water_dependency:
+        value: "moderate dependency"
+        unit: null

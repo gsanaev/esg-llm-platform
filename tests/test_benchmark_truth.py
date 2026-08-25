@@ -36,6 +36,10 @@ def test_load_benchmark_truth():
         "value": 0.38,
         "unit": "fraction",
     }
+    assert alpha["metrics"]["water_dependency"] == {
+        "value": "high dependency",
+        "unit": None,
+    }
 
     beta = truth["companies"][1]
 
@@ -47,4 +51,8 @@ def test_load_benchmark_truth():
     assert beta["metrics"]["water_stress_share"] == {
         "value": 0.62,
         "unit": "fraction",
+    }
+    assert beta["metrics"]["water_dependency"] == {
+        "value": "moderate dependency",
+        "unit": None,
     }

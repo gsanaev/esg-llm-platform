@@ -20,6 +20,7 @@ _METRIC_ORDER = (
     "water_withdrawal",
     "water_consumption",
     "water_stress_share",
+    "water_dependency",
 )
 
 _METRIC_LABELS = {
@@ -28,6 +29,7 @@ _METRIC_LABELS = {
     "water_withdrawal": "Total water withdrawal",
     "water_consumption": "Total water consumption",
     "water_stress_share": "Water stress share",
+    "water_dependency": "Water dependency",
 }
 
 _NARRATIVE_TEMPLATES = {
@@ -50,6 +52,9 @@ _NARRATIVE_TEMPLATES = {
     "water_stress_share": (
         "The share of water use in water-stressed areas "
         "was {value} {unit}."
+    ),
+    "water_dependency": (
+        "The company described its water dependency as {value}."
     )
 }
 
@@ -98,7 +103,7 @@ def _prepare_disclosure_value(
     metric: str,
     entry: Mapping[str, Any],
     case: Mapping[str, Any],
-) -> tuple[Any, str]:
+) -> tuple[Any, str | None]:
     """
     Convert hidden truth into the unit requested by a disclosure case.
 
@@ -106,9 +111,19 @@ def _prepare_disclosure_value(
     Hidden benchmark truth remains unchanged.
     """
     value = entry["value"]
-    source_unit = str(entry["unit"])
+    source_unit_raw = entry.get("unit")
 
     unit_overrides = case.get("unit_overrides") or {}
+
+    if source_unit_raw is None:
+        if metric in unit_overrides:
+            raise ValueError(
+                "Cannot override unit for unitless benchmark metric: "
+                f"{metric}"
+            )
+        return value, None
+
+    source_unit = str(source_unit_raw)
     default_unit = _DEFAULT_DISCLOSURE_UNITS.get(
         metric,
         source_unit,
@@ -157,7 +172,7 @@ def _build_table(
         rows.append(
             [
                 _METRIC_LABELS[metric],
-                unit,
+                unit or "",
                 _format_value(value, number_format),
             ]
         )
