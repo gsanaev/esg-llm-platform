@@ -50,6 +50,7 @@ def evaluate_normalized_predictions(
     *,
     expected_location: str | None = None,
     expected_year: int | None = None,
+    expected_missing_metrics: set[str] | None = None,
 ) -> dict[str, Any]:
     """
     Compare normalized method predictions with hidden benchmark truth.
@@ -63,6 +64,10 @@ def evaluate_normalized_predictions(
     was actually detected. Missing detections are accounted for separately
     through detection recall and extraction coverage.
     """
+    missing_metrics = set(
+        expected_missing_metrics or set()
+    )
+
     metric_codes = set(truth_metrics) | set(predictions)
 
     metric_results: dict[str, dict[str, Any]] = {}
@@ -80,6 +85,8 @@ def evaluate_normalized_predictions(
     location_correct_count = 0
     year_comparisons = 0
     year_correct_count = 0
+    missing_comparisons = 0
+    missing_correct_count = 0
 
     for code in sorted(metric_codes):
         truth_entry = truth_metrics.get(code) or {}
@@ -93,7 +100,12 @@ def evaluate_normalized_predictions(
         predicted_location = prediction_entry.get("location")
         predicted_year = prediction_entry.get("year")
 
-        expected_present = expected_value is not None
+        expected_missing = code in missing_metrics
+
+        expected_present = (
+            expected_value is not None
+            and not expected_missing
+        )
         predicted_present = predicted_value is not None
 
         if expected_present:
@@ -132,6 +144,11 @@ def evaluate_normalized_predictions(
             and predicted_present
             and expected_year is not None
             and predicted_year == expected_year
+        )
+
+        missing_value_correct = (
+            expected_missing
+            and not predicted_present
         )
 
         if (
@@ -174,13 +191,21 @@ def evaluate_normalized_predictions(
             if year_correct:
                 year_correct_count += 1
 
+        if expected_missing:
+            missing_comparisons += 1
+
+            if missing_value_correct:
+                missing_correct_count += 1
+
         metric_results[code] = {
             "expected_present": expected_present,
+            "expected_missing": expected_missing,
             "predicted_present": predicted_present,
             "value_correct": value_correct,
             "unit_correct": unit_correct,
             "location_correct": location_correct,
             "year_correct": year_correct,
+            "missing_value_correct": missing_value_correct,
         }
 
     summary = {
@@ -204,14 +229,18 @@ def evaluate_normalized_predictions(
             location_correct_count,
             location_comparisons,
         ),
-        "extraction_coverage": _safe_ratio(
-            true_positives,
-            expected_positives,
-        ),
         "reporting_year_accuracy": _safe_ratio(
             year_correct_count,
             year_comparisons,
         ),
+        "missing_value_accuracy": _safe_ratio(
+            missing_correct_count,
+            missing_comparisons,
+        ),
+        "extraction_coverage": _safe_ratio(
+                    true_positives,
+                    expected_positives,
+                ),
     }
 
     return {

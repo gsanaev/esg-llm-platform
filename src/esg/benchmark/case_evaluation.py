@@ -58,6 +58,9 @@ def evaluate_benchmark_case(
         predictions,
         expected_location=company.get("facility_location"),
         expected_year=company.get("reporting_year"),
+        expected_missing_metrics=set(
+            case.get("omitted_metrics") or []
+        ),
     )
 
     return {

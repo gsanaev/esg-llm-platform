@@ -111,3 +111,40 @@ def test_evaluate_normalized_predictions_detects_errors_and_missingness():
     false_positive = evaluation["metrics"]["energy_consumption"]
     assert false_positive["expected_present"] is False
     assert false_positive["predicted_present"] is True
+
+
+def test_evaluate_normalized_predictions_penalizes_false_missing_value():
+    truth = {
+        "water_consumption": {
+            "value": 800_000.0,
+            "unit": "m3",
+        },
+    }
+
+    predictions = {
+        "water_consumption": {
+            "value": 800_000.0,
+            "unit": "m3",
+        },
+    }
+
+    evaluation = evaluate_normalized_predictions(
+        truth,
+        predictions,
+        expected_missing_metrics={
+            "water_consumption",
+        },
+    )
+
+    summary = evaluation["summary"]
+    consumption = evaluation["metrics"][
+        "water_consumption"
+    ]
+
+    assert summary["missing_value_accuracy"] == 0.0
+    assert consumption["expected_present"] is False
+    assert consumption["expected_missing"] is True
+    assert consumption["predicted_present"] is True
+    assert consumption["missing_value_correct"] is False
+
+    assert summary["detection_precision"] == 0.0

@@ -124,3 +124,53 @@ def test_evaluate_benchmark_case_table_grid_location_against_hidden_truth(
 
     for metric in result["evaluation"]["metrics"].values():
         assert metric["year_correct"] is True
+
+
+def test_evaluate_benchmark_case_handles_expected_missing_metric(
+    tmp_path,
+):
+    generated = generate_benchmark_pdfs(
+        TRUTH_PATH,
+        CASES_PATH,
+        tmp_path,
+    )
+
+    pdf_path = next(
+        path
+        for path in generated
+        if path.name
+        == "alpha_missing_water_consumption.pdf"
+    )
+
+    truth = load_benchmark_truth(TRUTH_PATH)
+    cases = load_benchmark_cases(CASES_PATH)
+
+    case = next(
+        item
+        for item in cases
+        if item["case_id"]
+        == "alpha_missing_water_consumption"
+    )
+
+    schema = load_config().universal_kpis
+
+    result = evaluate_benchmark_case(
+        str(pdf_path),
+        case=case,
+        truth=truth,
+        method="table_grid",
+        kpi_schema=schema,
+    )
+
+    summary = result["evaluation"]["summary"]
+
+    assert summary["missing_value_accuracy"] == 1.0
+
+    consumption = result["evaluation"]["metrics"][
+        "water_consumption"
+    ]
+
+    assert consumption["expected_present"] is False
+    assert consumption["expected_missing"] is True
+    assert consumption["predicted_present"] is False
+    assert consumption["missing_value_correct"] is True
