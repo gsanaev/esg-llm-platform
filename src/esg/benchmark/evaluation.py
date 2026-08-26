@@ -49,6 +49,7 @@ def evaluate_normalized_predictions(
     predictions: Mapping[str, Mapping[str, Any]],
     *,
     expected_location: str | None = None,
+    expected_year: int | None = None,
 ) -> dict[str, Any]:
     """
     Compare normalized method predictions with hidden benchmark truth.
@@ -77,6 +78,8 @@ def evaluate_normalized_predictions(
     unit_correct_count = 0
     location_comparisons = 0
     location_correct_count = 0
+    year_comparisons = 0
+    year_correct_count = 0
 
     for code in sorted(metric_codes):
         truth_entry = truth_metrics.get(code) or {}
@@ -88,6 +91,7 @@ def evaluate_normalized_predictions(
         expected_unit = truth_entry.get("unit")
         predicted_unit = prediction_entry.get("unit")
         predicted_location = prediction_entry.get("location")
+        predicted_year = prediction_entry.get("year")
 
         expected_present = expected_value is not None
         predicted_present = predicted_value is not None
@@ -123,6 +127,13 @@ def evaluate_normalized_predictions(
             and predicted_location == expected_location
         )
 
+        year_correct = (
+            expected_present
+            and predicted_present
+            and expected_year is not None
+            and predicted_year == expected_year
+        )
+
         if (
             expected_present
             and predicted_present
@@ -153,12 +164,23 @@ def evaluate_normalized_predictions(
             if location_correct:
                 location_correct_count += 1
 
+        if (
+            expected_present
+            and predicted_present
+            and expected_year is not None
+        ):
+            year_comparisons += 1
+
+            if year_correct:
+                year_correct_count += 1
+
         metric_results[code] = {
             "expected_present": expected_present,
             "predicted_present": predicted_present,
             "value_correct": value_correct,
             "unit_correct": unit_correct,
             "location_correct": location_correct,
+            "year_correct": year_correct,
         }
 
     summary = {
@@ -185,6 +207,10 @@ def evaluate_normalized_predictions(
         "extraction_coverage": _safe_ratio(
             true_positives,
             expected_positives,
+        ),
+        "reporting_year_accuracy": _safe_ratio(
+            year_correct_count,
+            year_comparisons,
         ),
     }
 

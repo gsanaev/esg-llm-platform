@@ -57,6 +57,7 @@ def evaluate_benchmark_case(
         truth_metrics,
         predictions,
         expected_location=company.get("facility_location"),
+        expected_year=company.get("reporting_year"),
     )
 
     return {
