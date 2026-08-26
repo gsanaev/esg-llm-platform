@@ -56,6 +56,7 @@ def evaluate_benchmark_case(
     evaluation = evaluate_normalized_predictions(
         truth_metrics,
         predictions,
+        expected_location=company.get("facility_location"),
     )
 
     return {

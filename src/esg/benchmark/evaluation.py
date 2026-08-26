@@ -47,6 +47,8 @@ def _safe_ratio(
 def evaluate_normalized_predictions(
     truth_metrics: Mapping[str, Mapping[str, Any]],
     predictions: Mapping[str, Mapping[str, Any]],
+    *,
+    expected_location: str | None = None,
 ) -> dict[str, Any]:
     """
     Compare normalized method predictions with hidden benchmark truth.
@@ -73,6 +75,8 @@ def evaluate_normalized_predictions(
 
     unit_comparisons = 0
     unit_correct_count = 0
+    location_comparisons = 0
+    location_correct_count = 0
 
     for code in sorted(metric_codes):
         truth_entry = truth_metrics.get(code) or {}
@@ -83,6 +87,7 @@ def evaluate_normalized_predictions(
 
         expected_unit = truth_entry.get("unit")
         predicted_unit = prediction_entry.get("unit")
+        predicted_location = prediction_entry.get("location")
 
         expected_present = expected_value is not None
         predicted_present = predicted_value is not None
@@ -111,6 +116,13 @@ def evaluate_normalized_predictions(
             and expected_unit == predicted_unit
         )
 
+        location_correct = (
+            expected_present
+            and predicted_present
+            and expected_location is not None
+            and predicted_location == expected_location
+        )
+
         if (
             expected_present
             and predicted_present
@@ -131,11 +143,22 @@ def evaluate_normalized_predictions(
             if unit_correct:
                 unit_correct_count += 1
 
+        if (
+            expected_present
+            and predicted_present
+            and expected_location is not None
+        ):
+            location_comparisons += 1
+
+            if location_correct:
+                location_correct_count += 1
+
         metric_results[code] = {
             "expected_present": expected_present,
             "predicted_present": predicted_present,
             "value_correct": value_correct,
             "unit_correct": unit_correct,
+            "location_correct": location_correct,
         }
 
     summary = {
@@ -154,6 +177,10 @@ def evaluate_normalized_predictions(
         "unit_accuracy": _safe_ratio(
             unit_correct_count,
             unit_comparisons,
+        ),
+        "location_accuracy": _safe_ratio(
+            location_correct_count,
+            location_comparisons,
         ),
         "extraction_coverage": _safe_ratio(
             true_positives,

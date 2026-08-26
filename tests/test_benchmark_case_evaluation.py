@@ -66,3 +66,51 @@ def test_evaluate_benchmark_case_regex_against_hidden_truth(tmp_path):
     assert dependency["expected_present"] is True
     assert dependency["predicted_present"] is False
     assert dependency["value_correct"] is False
+    assert summary["location_accuracy"] == 0.0
+
+    withdrawal = result["evaluation"]["metrics"]["water_withdrawal"]
+
+    assert withdrawal["location_correct"] is False
+
+
+
+def test_evaluate_benchmark_case_table_grid_location_against_hidden_truth(
+    tmp_path,
+):
+    generated = generate_benchmark_pdfs(
+        TRUTH_PATH,
+        CASES_PATH,
+        tmp_path,
+    )
+
+    pdf_path = next(
+        path
+        for path in generated
+        if path.name == "alpha_structured_table.pdf"
+    )
+
+    truth = load_benchmark_truth(TRUTH_PATH)
+    cases = load_benchmark_cases(CASES_PATH)
+
+    case = next(
+        item
+        for item in cases
+        if item["case_id"] == "alpha_structured_table"
+    )
+
+    schema = load_config().universal_kpis
+
+    result = evaluate_benchmark_case(
+        str(pdf_path),
+        case=case,
+        truth=truth,
+        method="table_grid",
+        kpi_schema=schema,
+    )
+
+    summary = result["evaluation"]["summary"]
+
+    assert summary["location_accuracy"] == 1.0
+
+    for metric in result["evaluation"]["metrics"].values():
+        assert metric["location_correct"] is True
