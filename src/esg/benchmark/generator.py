@@ -164,6 +164,9 @@ def _build_table(
     omitted_metrics = set(
         case.get("omitted_metrics") or []
     )
+    conflicting_values = (
+        case.get("conflicting_values") or {}
+    )
 
     rows = [
         [
@@ -190,6 +193,22 @@ def _build_table(
                 _format_value(value, number_format),
             ]
         )
+
+        for conflicting_value in conflicting_values.get(
+            metric,
+            [],
+        ):
+            rows.append(
+                [
+                    facility_location,
+                    _METRIC_LABELS[metric],
+                    unit or "",
+                    _format_value(
+                        conflicting_value,
+                        number_format,
+                    ),
+                ]
+            )
 
     table = Table(rows, hAlign="LEFT")
     table.setStyle(

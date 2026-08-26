@@ -27,6 +27,7 @@ def test_generate_benchmark_pdfs(tmp_path):
         "beta_locale_table.pdf",
         "beta_mixed_units.pdf",
         "alpha_missing_water_consumption.pdf",
+        "alpha_conflicting_water_withdrawal.pdf",
     ]
     assert all(path.is_file() for path in paths)
 
@@ -103,3 +104,16 @@ def test_generate_benchmark_pdfs(tmp_path):
 
     assert "Total water consumption" not in missing_text
     assert "800,000" not in missing_text
+
+    conflict_text = texts[
+        "alpha_conflicting_water_withdrawal.pdf"
+    ]
+
+    assert "synthetic_alpha" in conflict_text
+    assert "1,200,000" in conflict_text
+    assert "1,250,000" in conflict_text
+
+    assert (
+        conflict_text.count("Total water withdrawal")
+        == 2
+    )

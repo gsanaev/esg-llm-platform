@@ -28,3 +28,11 @@ benchmark_cases:
     omitted_metrics:
       - water_consumption
     output_filename: "alpha_missing_water_consumption.pdf"
+
+  - case_id: "alpha_conflicting_water_withdrawal"
+    company_id: "synthetic_alpha"
+    disclosure_format: "table"
+    conflicting_values:
+      water_withdrawal:
+        - 1250000
+    output_filename: "alpha_conflicting_water_withdrawal.pdf"
