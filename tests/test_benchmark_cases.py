@@ -9,13 +9,14 @@ CASES_PATH = Path("data/benchmark/cases/benchmark_cases.yaml")
 def test_load_benchmark_cases():
     cases = load_benchmark_cases(CASES_PATH)
 
-    assert len(cases) == 4
+    assert len(cases) == 5
 
     assert [case["case_id"] for case in cases] == [
         "alpha_structured_table",
         "alpha_clean_narrative",
         "beta_locale_table",
         "beta_mixed_units",
+        "alpha_missing_water_consumption",
     ]
 
     mixed_units = cases[3]
@@ -25,3 +26,11 @@ def test_load_benchmark_cases():
     assert mixed_units["unit_overrides"] == {
         "energy_consumption": "GWh",
     }
+
+    missing = cases[4]
+
+    assert missing["company_id"] == "synthetic_alpha"
+    assert missing["disclosure_format"] == "table"
+    assert missing["omitted_metrics"] == [
+        "water_consumption",
+    ]

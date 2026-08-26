@@ -161,6 +161,9 @@ def _build_table(
     facility_location = str(company["facility_location"])
     metrics = company["metrics"]
     number_format = str(case.get("number_format", "en"))
+    omitted_metrics = set(
+        case.get("omitted_metrics") or []
+    )
 
     rows = [
         [
@@ -172,6 +175,8 @@ def _build_table(
     ]
 
     for metric in _METRIC_ORDER:
+        if metric in omitted_metrics:
+            continue
         value, unit = _prepare_disclosure_value(
             metric,
             metrics[metric],
@@ -209,6 +214,9 @@ def _build_narrative(
     metrics = company["metrics"]
     number_format = str(case.get("number_format", "en"))
     styles = getSampleStyleSheet()
+    omitted_metrics = set(
+        case.get("omitted_metrics") or []
+    )
 
     story: list[Paragraph | Spacer] = []
     facility_location = str(company["facility_location"])
@@ -222,6 +230,8 @@ def _build_narrative(
     story.append(Spacer(1, 0.35 * cm))
 
     for metric in _METRIC_ORDER:
+        if metric in omitted_metrics:
+            continue
         value, unit = _prepare_disclosure_value(
             metric,
             metrics[metric],

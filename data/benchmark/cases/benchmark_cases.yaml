@@ -21,3 +21,10 @@ benchmark_cases:
     unit_overrides:
       energy_consumption: "GWh"
     output_filename: "beta_mixed_units.pdf"
+
+  - case_id: "alpha_missing_water_consumption"
+    company_id: "synthetic_alpha"
+    disclosure_format: "table"
+    omitted_metrics:
+      - water_consumption
+    output_filename: "alpha_missing_water_consumption.pdf"
