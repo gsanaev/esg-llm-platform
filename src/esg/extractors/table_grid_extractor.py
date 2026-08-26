@@ -341,7 +341,21 @@ def extract_kpis_tables_grid(
                         units,
                         page_number=page_number,
                     )
+                    header = table_grid[0]
+                    value_col = _detect_cols(header)["value"]
+                    year = None
 
+                    if value_col < len(header):
+                        value_header = _norm_text(
+                            header[value_col]
+                        )
+
+                        if re.fullmatch(r"20\d{2}", value_header):
+                            year = int(value_header)
+
+                    if year is not None:
+                        for entry in hits.values():
+                            entry["year"] = year
                     # First-hit rule: keep only the first occurrence
                     for code, entry in hits.items():
                         if code not in aggregated:

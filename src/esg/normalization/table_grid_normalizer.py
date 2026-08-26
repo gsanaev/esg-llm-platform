@@ -139,6 +139,7 @@ def normalize_table_grid_result(
             "page": entry.get("page"),
             "source_context": entry.get("source_context"),
             "location": entry.get("location"),
+            "year": entry.get("year"),
         }
 
         # Internal score for debugging / analysis (does not affect confidence)

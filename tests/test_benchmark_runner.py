@@ -39,7 +39,12 @@ def test_run_benchmark_method_table_grid(tmp_path):
         entry.get("location")
         for entry in predictions.values()
     }
+    years = {
+        entry.get("year")
+        for entry in predictions.values()
+    }
 
+    assert years == {2024}
     assert locations == {"Frankfurt facility"}
 
     assert predictions["total_ghg_emissions"]["value"] == 123_400.0
