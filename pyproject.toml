@@ -38,3 +38,8 @@ namespaces = true
 
 [tool.setuptools.package-data]
 esg = ["schemas/*.json"]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.3.0",
+]
