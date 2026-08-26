@@ -30,6 +30,68 @@ def _values_agree(values: list[float | str]) -> bool:
     return True
 
 
+def _has_same_context_value_conflict(
+    evidence: Sequence[EvidenceCandidate],
+) -> bool:
+    """
+    Return True when values disagree within a sufficiently known
+    reporting context.
+
+    If some evidence provides a year or location, observations missing
+    that dimension are not used to prove a same-context conflict. This
+    prevents lost context from collapsing distinct observations into one
+    artificial group.
+    """
+    known_year_exists = any(
+        candidate.year is not None
+        for candidate in evidence
+    )
+    known_location_exists = any(
+        candidate.location is not None
+        for candidate in evidence
+    )
+
+    grouped_values: dict[
+        tuple[int | None, str | None, str | None],
+        list[float | str],
+    ] = {}
+
+    for candidate in evidence:
+        value = candidate.value_normalized
+
+        if value is None:
+            continue
+
+        if (
+            known_year_exists
+            and candidate.year is None
+        ):
+            continue
+
+        if (
+            known_location_exists
+            and candidate.location is None
+        ):
+            continue
+
+        context = (
+            candidate.year,
+            candidate.location,
+            candidate.unit_normalized,
+        )
+
+        grouped_values.setdefault(
+            context,
+            [],
+        ).append(value)
+
+    return any(
+        len(values) > 1
+        and not _values_agree(values)
+        for values in grouped_values.values()
+    )
+
+
 def reconcile_metric_evidence(
     metric: str,
     evidence: Sequence[EvidenceCandidate],
@@ -110,6 +172,35 @@ def reconcile_metric_evidence(
         if len(known_units) == 1
         else None
     )
+    year_ambiguous = bool(known_years) and any(
+        candidate.year is None
+        for candidate in usable
+    )
+    location_ambiguous = bool(known_locations) and any(
+        candidate.location is None
+        for candidate in usable
+    )
+
+    same_context_value_conflict = (
+        _has_same_context_value_conflict(usable)
+    )
+
+    if same_context_value_conflict:
+        return ReconciledKPIResult(
+            metric=metric,
+            value=None,
+            unit=resolved_unit,
+            supporting_evidence=supporting_evidence,
+            year=None if year_ambiguous else resolved_year,
+            location=(
+                None
+                if location_ambiguous
+                else resolved_location
+            ),
+            conflict_flag=True,
+            review_required=True,
+            status="review_required",
+        )
 
     # Different known reporting contexts are not automatically conflicts.
     if len(known_years) > 1 or len(known_locations) > 1:
@@ -126,14 +217,6 @@ def reconcile_metric_evidence(
         )
 
     # Mixed known/unknown context is ambiguous rather than conflicting.
-    year_ambiguous = bool(known_years) and any(
-        candidate.year is None
-        for candidate in usable
-    )
-    location_ambiguous = bool(known_locations) and any(
-        candidate.location is None
-        for candidate in usable
-    )
 
     # More than one normalized unit for the same comparable KPI is a conflict.
     if len(known_units) > 1:

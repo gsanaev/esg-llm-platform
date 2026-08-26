@@ -83,6 +83,71 @@ def test_reconciliation_flags_same_context_value_conflict():
     assert result.review_required is True
 
 
+def test_reconciliation_preserves_known_same_context_conflict_with_unknown_context():
+    evidence = [
+        _water_candidate(
+            1_200_000.0,
+            method="table_grid",
+            location="Frankfurt",
+        ),
+        _water_candidate(
+            1_250_000.0,
+            method="table_grid",
+            location="Frankfurt",
+        ),
+        _water_candidate(
+            1_200_000.0,
+            method="regex",
+            location=None,
+        ),
+    ]
+
+    result = reconcile_metric_evidence(
+        "water_withdrawal",
+        evidence,
+    )
+
+    assert result.status == "review_required"
+    assert result.value is None
+    assert result.conflict_flag is True
+    assert result.review_required is True
+
+
+def test_reconciliation_does_not_infer_conflict_from_unknown_context_duplicates():
+    evidence = [
+        _water_candidate(
+            350_000.0,
+            method="table_grid",
+            location="Frankfurt",
+        ),
+        _water_candidate(
+            280_000.0,
+            method="table_grid",
+            location="Berlin",
+        ),
+        _water_candidate(
+            350_000.0,
+            method="regex",
+            location=None,
+        ),
+        _water_candidate(
+            280_000.0,
+            method="regex",
+            location=None,
+        ),
+    ]
+
+    result = reconcile_metric_evidence(
+        "water_withdrawal",
+        evidence,
+    )
+
+    assert result.status == "review_required"
+    assert result.value is None
+    assert result.conflict_flag is False
+    assert result.review_required is True
+
+
 def test_reconciliation_different_years_are_not_automatic_conflict():
     evidence = [
         _water_candidate(
