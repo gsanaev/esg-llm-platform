@@ -230,7 +230,7 @@ def extract_kpi_candidates_nlp(
     """
     Extract multiple NLP observations for each KPI.
 
-    The legacy extract_kpis_nlp() API remains unchanged. Candidate
+    The single-result extract_kpis_nlp() API remains unchanged. Candidate
     deduplication is based on the sentence containing the numeric
     observation so overlapping sentence windows do not duplicate the
     same underlying match.

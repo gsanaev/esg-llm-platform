@@ -66,12 +66,12 @@ def test_nlp_preserves_multiple_candidates():
     ]
     assert all(entry["raw_unit"] == "m3" for entry in water)
 
-    legacy = extract_kpis_nlp(
+    single_result = extract_kpis_nlp(
         text,
         kpis,
     )
 
-    assert legacy["water_withdrawal"]["raw_value"] == "1,200,000"
+    assert single_result["water_withdrawal"]["raw_value"] == "1,200,000"
 
 
 def test_nlp_candidates_deduplicate_overlapping_windows():
@@ -164,10 +164,10 @@ def test_nlp_distinguishes_water_withdrawal_from_consumption():
         for entry in candidates["water_consumption"]
     ] == ["800,000"]
 
-    legacy = extract_kpis_nlp(
+    single_result = extract_kpis_nlp(
         text,
         kpis,
     )
 
-    assert legacy["water_withdrawal"]["raw_value"] == "1,200,000"
-    assert legacy["water_consumption"]["raw_value"] == "800,000"
+    assert single_result["water_withdrawal"]["raw_value"] == "1,200,000"
+    assert single_result["water_consumption"]["raw_value"] == "800,000"

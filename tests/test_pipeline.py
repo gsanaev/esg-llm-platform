@@ -479,11 +479,11 @@ def test_pipeline_preserves_qualitative_water_dependency(tmp_path):
         for result in results
     }
 
-    dependency_legacy = by_code["water_dependency"]
+    dependency_result = by_code["water_dependency"]
 
-    assert dependency_legacy.value == "high dependency"
-    assert dependency_legacy.unit is None
-    assert dependency_legacy.source == ["table_grid"]
+    assert dependency_result.value == "high dependency"
+    assert dependency_result.unit is None
+    assert dependency_result.source == ["table_grid"]
 
     reconciled = pipeline.run_on_pdf_reconciled(
         str(pdf_path)

@@ -76,12 +76,12 @@ def test_table_grid_preserves_multiple_candidates(tmp_path):
     assert all(entry["page"] == 1 for entry in water)
     assert all(entry["source_context"] for entry in water)
 
-    legacy = extract_kpis_tables_grid(
+    single_result = extract_kpis_tables_grid(
         str(pdf_path),
         load_kpis(),
     )
 
-    assert legacy["water_withdrawal"]["raw_value"] == "1,250,000"
+    assert single_result["water_withdrawal"]["raw_value"] == "1,250,000"
 
 
 def test_table_grid_preserves_location_context(tmp_path):
@@ -133,12 +133,12 @@ def test_table_grid_preserves_location_context(tmp_path):
         "Berlin facility",
     ]
 
-    legacy = extract_kpis_tables_grid(
+    single_result = extract_kpis_tables_grid(
         str(pdf_path),
         load_kpis(),
     )
 
-    assert legacy["water_withdrawal"]["location"] == "Berlin facility"
+    assert single_result["water_withdrawal"]["location"] == "Berlin facility"
 
 
 def test_table_grid_normalizes_qualitative_water_dependency(tmp_path):

@@ -329,7 +329,7 @@ def extract_kpi_candidates_regex(
     Extract all non-overlapping regex observations for each KPI.
 
     Pattern priority remains A -> B -> C -> D when overlapping matches
-    represent the same text span. The legacy extract_kpis_regex() API
+    represent the same text span. The single-result extract_kpis_regex() API
     remains unchanged.
     """
     results: Dict[str, list[Dict[str, Any]]] = {}

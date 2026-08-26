@@ -73,9 +73,9 @@ def test_table_plain_preserves_multiple_candidates(tmp_path):
     assert all(entry["page"] == 1 for entry in water)
     assert all(entry["source_context"] for entry in water)
 
-    legacy = extract_kpis_tables_plain(
+    single_result = extract_kpis_tables_plain(
         str(pdf_path),
         kpi_schema,
     )
 
-    assert legacy["water_withdrawal"]["raw_value"] == "1,200,000"
+    assert single_result["water_withdrawal"]["raw_value"] == "1,200,000"

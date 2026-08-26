@@ -56,12 +56,12 @@ def test_regex_preserves_multiple_candidates():
     ]
     assert all(entry["raw_unit"] == "m3" for entry in water)
 
-    legacy = extract_kpis_regex(
+    single_result = extract_kpis_regex(
         text,
         kpi_schema,
     )
 
-    assert legacy["water_withdrawal"]["raw_value"] == "1,200,000"
+    assert single_result["water_withdrawal"]["raw_value"] == "1,200,000"
 
 
 def test_regex_candidates_deduplicate_overlapping_patterns():
@@ -104,13 +104,13 @@ def test_regex_distinguishes_water_withdrawal_from_consumption():
         for entry in candidates["water_consumption"]
     ] == ["800,000"]
 
-    legacy = extract_kpis_regex(
+    single_result = extract_kpis_regex(
         text,
         kpi_schema,
     )
 
-    assert legacy["water_withdrawal"]["raw_value"] == "1,200,000"
-    assert legacy["water_consumption"]["raw_value"] == "800,000"
+    assert single_result["water_withdrawal"]["raw_value"] == "1,200,000"
+    assert single_result["water_consumption"]["raw_value"] == "800,000"
 
 
 def test_regex_shared_unit_does_not_use_stale_metric_context():
@@ -130,13 +130,13 @@ def test_regex_shared_unit_does_not_use_stale_metric_context():
     assert "water_withdrawal" not in candidates
     assert "water_consumption" not in candidates
 
-    legacy = extract_kpis_regex(
+    single_result = extract_kpis_regex(
         text,
         kpi_schema,
     )
 
-    assert "water_withdrawal" not in legacy
-    assert "water_consumption" not in legacy
+    assert "water_withdrawal" not in single_result
+    assert "water_consumption" not in single_result
 
 
 def test_regex_percentage_metric_requires_local_semantic_context():
@@ -167,17 +167,17 @@ def test_regex_percentage_metric_requires_local_semantic_context():
     assert len(water_stress) == 1
     assert water_stress[0]["raw_value"] == "38"
     assert water_stress[0]["raw_unit"] == "%"
-    unrelated_legacy = extract_kpis_regex(
+    unrelated_single_result = extract_kpis_regex(
         unrelated_text,
         kpi_schema,
     )
 
-    assert "water_stress_share" not in unrelated_legacy
+    assert "water_stress_share" not in unrelated_single_result
 
-    relevant_legacy = extract_kpis_regex(
+    relevant_single_result = extract_kpis_regex(
         relevant_text,
         kpi_schema,
     )
 
-    assert relevant_legacy["water_stress_share"]["raw_value"] == "38"
-    assert relevant_legacy["water_stress_share"]["raw_unit"] == "%"
+    assert relevant_single_result["water_stress_share"]["raw_value"] == "38"
+    assert relevant_single_result["water_stress_share"]["raw_unit"] == "%"

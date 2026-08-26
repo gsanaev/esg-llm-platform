@@ -45,8 +45,8 @@ class ReconciledKPIResult:
     """
     Final KPI result produced after evidence reconciliation.
 
-    This model is distinct from EvidenceCandidate and from the legacy
-    KPIResult compatibility model.
+    This model is distinct from EvidenceCandidate and from the compact
+    KPIResult representation used by the extraction/fusion API.
     """
 
     metric: str
@@ -88,10 +88,10 @@ class ReconciledKPIResult:
 @dataclass
 class KPIResult:
     """
-    Canonical KPI representation used by the current pipeline.
+    Compact KPI representation used by the extraction/fusion API.
 
-    This remains separate from EvidenceCandidate. In v2, final KPI results
-    will eventually be produced after evidence reconciliation.
+    Evidence-based final workflow decisions are represented separately by
+    ReconciledKPIResult after evidence reconciliation.
     """
 
     code: str

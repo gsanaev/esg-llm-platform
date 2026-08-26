@@ -249,7 +249,7 @@ def _extract_table_grid(
     """
     Compatibility helper returning one observation per KPI.
 
-    Preserve the legacy behavior where the last matching row within a
+    Preserve the single-result behavior where the last matching row within a
     single table wins.
     """
     candidates = _extract_table_grid_candidates(

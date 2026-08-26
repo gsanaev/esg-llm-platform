@@ -147,7 +147,7 @@ def _parse_table_plain_text(
     """
     Compatibility parser returning one observation per KPI.
 
-    Preserve the legacy behavior where the first matching line on a page wins.
+    Preserve the single-result behavior where the first matching line on a page wins.
     """
     candidates = _parse_table_plain_candidates(
         text,
