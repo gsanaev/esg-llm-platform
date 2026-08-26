@@ -86,7 +86,6 @@ def normalize_nlp_result(
 
         normalized_entry["_score"] = compute_extraction_score(
             parsed_value=value,
-            raw_value=raw_value,
             unit=unit,
             allowed_units=allowed_units,
             base_confidence=confidence,

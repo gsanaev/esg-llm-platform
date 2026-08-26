@@ -148,7 +148,6 @@ def normalize_regex_result(
 
             normalized_entry["_score"] = compute_extraction_score(
                 parsed_value=None,
-                raw_value=raw_value,
                 unit=canonical_unit,
                 allowed_units=units,
                 base_confidence=base_conf,
@@ -186,7 +185,6 @@ def normalize_regex_result(
 
         normalized_entry["_score"] = compute_extraction_score(
             parsed_value=final_value,
-            raw_value=raw_value,
             unit=unit,
             allowed_units=units,
             base_confidence=base_conf,

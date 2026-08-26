@@ -65,7 +65,6 @@ def fuse_all_sources(
     table_grid_norm: Mapping[str, Any],
     table_plain_norm: Mapping[str, Any],
     nlp_norm: Mapping[str, Any],
-    llm_norm: Mapping[str, Any],
     kpi_codes: List[str],
 ) -> Dict[str, Dict[str, Any]]:
 
@@ -227,7 +226,6 @@ class ESGPipelineV2:
             table_grid_norm=table_grid_norm,
             table_plain_norm=table_plain_norm,
             nlp_norm=nlp_norm,
-            llm_norm={},
             kpi_codes=kpi_codes,
         )
 
