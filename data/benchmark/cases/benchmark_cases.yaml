@@ -27,6 +27,11 @@ benchmark_cases:
     disclosure_format: "table"
     omitted_metrics:
       - water_consumption
+    expected_reconciliation:
+      water_consumption:
+        conflict_flag: false
+        review_required: false
+        status: "not_reported"
     output_filename: "alpha_missing_water_consumption.pdf"
 
   - case_id: "alpha_conflicting_water_withdrawal"
@@ -35,4 +40,9 @@ benchmark_cases:
     conflicting_values:
       water_withdrawal:
         - 1250000
+    expected_reconciliation:
+      water_withdrawal:
+        conflict_flag: true
+        review_required: true
+        status: "review_required"
     output_filename: "alpha_conflicting_water_withdrawal.pdf"

@@ -35,6 +35,13 @@ def test_load_benchmark_cases():
     assert missing["omitted_metrics"] == [
         "water_consumption",
     ]
+    assert missing["expected_reconciliation"] == {
+        "water_consumption": {
+            "conflict_flag": False,
+            "review_required": False,
+            "status": "not_reported",
+        },
+    }
 
     conflict = cases[5]
 
@@ -44,4 +51,11 @@ def test_load_benchmark_cases():
         "water_withdrawal": [
             1250000,
         ],
+    }
+    assert conflict["expected_reconciliation"] == {
+        "water_withdrawal": {
+            "conflict_flag": True,
+            "review_required": True,
+            "status": "review_required",
+        },
     }
