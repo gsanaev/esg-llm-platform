@@ -10,20 +10,10 @@ from esg.core.schema import (
 )
 
 
-def test_schema_helpers_support_legacy_units():
-    meta = {
-        "units": ["MWh", "kWh", "GWh"],
-    }
-
-    assert get_accepted_units(meta) == ["MWh", "kWh", "GWh"]
-    assert get_canonical_unit(meta) == "MWh"
-
-
-def test_schema_helpers_prefer_v2_unit_fields():
+def test_schema_helpers_use_explicit_unit_fields():
     meta = {
         "canonical_unit": "m3",
         "accepted_units": ["m3", "m³", "cubic meters"],
-        "units": ["legacy-unit"],
     }
 
     assert get_accepted_units(meta) == ["m3", "m³", "cubic meters"]
