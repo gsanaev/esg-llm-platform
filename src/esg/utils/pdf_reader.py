@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 def extract_text(pdf_path: str) -> str:
     """
-    Minimal text extraction used by ESG V2 pipeline.
+    Minimal text extraction used by the ESG pipeline.
     Returns cleaned concatenated text from all PDF pages.
     """
     path = Path(pdf_path)

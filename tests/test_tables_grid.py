@@ -13,7 +13,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 
 SCHEMA_PATH = Path("src/esg/schemas/universal_kpis.json")
-PDF_PATH = Path("data/samples/esg_simple_table.pdf")   # updated
+PDF_PATH = Path("data/samples/esg_simple_table.pdf")
 
 
 def load_kpis():

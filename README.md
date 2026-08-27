@@ -1,20 +1,77 @@
-# ESG Extraction Pipeline V2
+# ESG KPI Extraction & Reconciliation Pipeline
 
-A reproducible Python pipeline for extracting, normalizing, reconciling, and evaluating sustainability KPIs from synthetic ESG disclosures.
+![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-2E8B57)
 
-Version 2 extends the original extraction prototype with hidden ground truth, controlled benchmark generation, evidence preservation, reconciliation, nature-related water indicators, and method-level evaluation.
+> **Kurzbeschreibung (DE)**
+>
+> Reproduzierbare Python-Pipeline zur Extraktion, Normalisierung und zum evidenzbasierten Abgleich von Nachhaltigkeitskennzahlen aus PDF-Berichten. Ein kontrollierter synthetischer Benchmark mit separater Ground Truth ermöglicht die Bewertung deterministischer, NLP-basierter und optional LLM-gestützter Verfahren sowie den expliziten Umgang mit fehlenden oder widersprüchlichen Angaben.
 
-## Design principles
+**Project summary (EN)**
 
-1. **Evidence before final values** — extracted observations are preserved for review.
-2. **Deterministic methods first** — table, regex, and NLP methods run before optional LLM backfill.
-3. **Reconciliation before acceptance** — agreement, contextual differences, and conflicts are represented explicitly.
-4. **LLM output is evaluated, not trusted automatically** — LLM-only evidence requires review.
-5. **Benchmark claims come from ground truth** — heuristic confidence scores are not treated as correctness measures.
+A reproducible Python pipeline for extracting sustainability KPIs from PDF disclosures, preserving their source evidence, normalizing heterogeneous values and units, reconciling multiple observations, and evaluating extraction quality against hidden ground truth in a controlled benchmark.
 
-## KPI schema
+The central data-quality problem is that a plausible extracted number is not automatically a reliable observation. Values may disagree, refer to different years or locations, originate from different extraction methods, or be absent altogether. The pipeline therefore separates **extraction**, **normalization**, **evidence preservation**, and **reconciliation** before assigning a final result status.
 
-The universal schema is stored in `src/esg/schemas/universal_kpis.json`.
+The implementation is a compact methodological prototype based on controlled synthetic disclosures. It is designed for transparent and reproducible evaluation rather than production-scale ESG reporting.
+
+## Why this project
+
+Sustainability disclosures are difficult to process consistently because the same KPI can appear:
+
+- in narrative text or tables;
+- with different number formats and units;
+- with reporting-year or facility-specific context;
+- more than once in the same document;
+- with conflicting values;
+- or not at all.
+
+The project follows five principles:
+
+1. **Preserve evidence before selecting final values.**
+2. **Use deterministic extraction methods before optional LLM assistance.**
+3. **Normalize values and units through an explicit KPI schema.**
+4. **Reconcile observations before marking a result as accepted.**
+5. **Evaluate predictions against controlled ground truth rather than treating heuristic confidence as correctness.**
+
+## How it works
+
+```text
+PDF
+ │
+ ├─ table-grid extraction
+ ├─ table-plain extraction
+ ├─ regex extraction
+ ├─ NLP extraction
+ └─ optional LLM backfill
+          │
+          ▼
+     normalization
+          │
+          ├──────────────► compact extraction/fusion API
+          │                    run_on_pdf()
+          │
+          ▼
+   EvidenceCandidate[]
+          │
+          ▼
+      reconciliation
+          │
+          ▼
+  ReconciledKPIResult
+          │
+   ┌──────┼───────────────┐
+   ▼      ▼               ▼
+accepted  review_required  not_reported
+```
+
+The public CLI uses the reconciled workflow. The compact extraction/fusion API remains available in Python for simpler extraction use cases.
+
+## Supported KPIs
+
+The universal schema is stored in:
+
+`src/esg/schemas/universal_kpis.json`
 
 | KPI code | Type | Canonical unit |
 | --- | --- | --- |
@@ -25,35 +82,11 @@ The universal schema is stored in `src/esg/schemas/universal_kpis.json`.
 | `water_stress_share` | quantitative | `fraction` |
 | `water_dependency` | qualitative | none |
 
-Facility/geographic location is contextual evidence metadata rather than a separate KPI.
+Facility or geographic location is contextual evidence metadata rather than a separate KPI.
 
-## Extraction architecture
+## Evidence and reconciliation
 
-```text
-PDF
- ├─ table-grid
- ├─ table-plain
- ├─ regex
- └─ NLP
-      ↓
- normalization
-      ↓
- deterministic fusion
-      ↓
- optional LLM backfill for unresolved KPIs
-      ↓
- evidence candidates
-      ↓
- reconciliation
-      ↓
- accepted / review_required / not_reported
-```
-
-Independent benchmark methods are `table_grid`, `table_plain`, `regex`, `nlp`, and optionally `llm`.
-
-## Evidence and provenance
-
-V2 preserves fields such as:
+Each extracted observation can be represented as an `EvidenceCandidate` containing fields such as:
 
 ```text
 metric
@@ -70,29 +103,41 @@ extraction_method
 extraction_score
 ```
 
-This keeps observations traceable to their source and extraction method wherever technically possible.
+This allows multiple observations to remain traceable instead of discarding provenance after the first match.
 
-## Reconciliation
+The reconciliation layer then evaluates the evidence for each KPI.
 
-The reconciliation layer distinguishes genuine disagreement from valid contextual differences.
+Current rules include:
 
 - agreeing deterministic evidence can be accepted;
-- different known years or locations can require review without being treated as conflicts;
-- incompatible units or same-context value disagreement can trigger a conflict;
-- LLM-only evidence requires review;
-- absence of evidence produces `not_reported`.
+- different known years or locations can require review without automatically being treated as conflicts;
+- incompatible normalized units can trigger review/conflict handling;
+- disagreement between values in the same known context can trigger a conflict;
+- LLM-only evidence requires review rather than automatic acceptance;
+- absence of usable evidence produces `not_reported`.
 
-Final results expose `status`, `conflict_flag`, `review_required`, and supporting evidence.
+Final `ReconciledKPIResult` objects expose:
 
-## Controlled benchmark
+```text
+metric
+value
+unit
+year
+location
+status
+conflict_flag
+review_required
+supporting_evidence
+```
 
-Hidden truth is stored in:
+## Benchmark and evaluation
 
-- `data/benchmark/truth/benchmark_truth.yaml`
+### Controlled benchmark
 
-Controlled disclosure cases are stored in:
+The project includes a reproducible synthetic benchmark in which predictions are evaluated against hidden ground truth.
 
-- `data/benchmark/cases/benchmark_cases.yaml`
+- Ground truth: `data/benchmark/truth/benchmark_truth.yaml`
+- Case definitions: `data/benchmark/cases/benchmark_cases.yaml`
 
 The six current cases are:
 
@@ -103,98 +148,68 @@ The six current cases are:
 - `alpha_missing_water_consumption`
 - `alpha_conflicting_water_withdrawal`
 
-Generated PDFs are written to `data/benchmark/generated/`. That directory is intentionally ignored by Git because the PDFs are reproducible derived artifacts.
+Generated benchmark PDFs are written to `data/benchmark/generated/`, which is ignored by Git because the documents are reproducible derived artifacts.
 
-Hidden truth is used to generate controlled disclosures and to evaluate predictions. It is not passed to the extraction runner.
+Ground truth is used to generate the controlled disclosures and to evaluate predictions afterward. It is **not passed to the extraction runner**.
 
-## Evaluation
+### Evaluation metrics
 
-The benchmark calculates:
+Independent benchmark methods are:
 
-- KPI detection precision and recall
-- numeric value accuracy
-- unit normalization accuracy
-- reporting-year accuracy
-- location extraction accuracy
-- missing-value accuracy
-- extraction coverage
-- conflict-detection accuracy
-- review-flag accuracy
+- `table_grid`
+- `table_plain`
+- `regex`
+- `nlp`
+- optional `llm`
 
-All reported benchmark metrics are calculated from actual outputs.
+Method-level metrics include:
 
-The current evaluator returns `0.0` when a metric has no applicable comparisons, so a zero does not always imply observed failure.
+- KPI detection precision;
+- KPI detection recall;
+- numeric value accuracy;
+- unit normalization accuracy;
+- reporting-year accuracy;
+- location accuracy;
+- missing-value accuracy;
+- extraction coverage.
 
-## V2 benchmark notebook
+`extraction_coverage` currently uses the same detected-versus-expected ratio as detection recall. It is retained as an operational coverage label rather than as a separate statistical measure.
 
-The primary V2 demonstration is:
+The reconciled workflow is evaluated separately for:
 
-`notebooks/03-v2-benchmark.ipynb`
+- conflict-detection accuracy;
+- review-flag accuracy.
 
-It loads benchmark configuration, regenerates the six PDFs, runs independent extraction methods, evaluates their predictions, demonstrates missing-value behavior, and evaluates the reconciled conflict/review cases.
+Where a benchmark dimension has no applicable comparison, the evaluator currently returns `0.0`; such values should therefore be interpreted in context.
 
-Run it headlessly with:
+### Benchmark snapshot
 
-```bash
-uv run jupyter nbconvert \
-  --to notebook \
-  --execute notebooks/03-v2-benchmark.ipynb \
-  --output 03-v2-benchmark-executed.ipynb \
-  --output-dir /tmp \
-  --ExecutePreprocessor.timeout=120
-```
+A deterministic benchmark run with `RUN_LLM = False` produces the following representative results:
 
-The committed source notebook contains no execution outputs.
+| Controlled scenario | Observed behavior |
+|---|---|
+| Structured table | `table_grid` reaches `1.00` detection recall, numeric accuracy, and unit accuracy |
+| Locale-formatted table | `table_grid` reaches `1.00` detection recall, numeric accuracy, and unit accuracy |
+| Clean narrative | `regex` and `nlp` each recover 5 of 6 KPIs (`0.833` recall), with `1.00` numeric and unit accuracy for detected values |
+| Mixed units | `table_grid` retains `1.00` detection recall, while numeric and unit accuracy fall to `0.80` |
+| Deliberately missing water consumption | all deterministic methods leave the KPI absent; reconciliation returns `not_reported` without conflict or review |
+| Deliberately conflicting water withdrawal | reconciliation returns `review_required` with `conflict_flag = true` and `review_required = true` |
 
-## LLM behavior
+The benchmark intentionally exposes method- and case-specific limitations rather than forcing a single aggregate accuracy score. `table_plain`, for example, produces no detections on the six generated benchmark PDFs, although it remains exercised separately on the mixed-layout integration fixture.
 
-LLM extraction is schema-guided and currently uses `gpt-4o-mini`.
+Detailed method-by-case results are reproducible in `notebooks/esg_benchmark.ipynb`. Live LLM benchmarking is opt-in and is excluded from the deterministic results above.
 
-Operationally, the pipeline first runs deterministic/table/NLP methods. If KPIs remain unresolved, it attempts LLM backfill only for those metrics.
+## Quick start
 
-The LLM extractor checks `OPENAI_API_KEY`:
+Python 3.12+ and `uv` are required.
 
-- without the variable, it returns no LLM predictions and the pipeline continues without a network call;
-- with the variable, LLM backfill may make a live OpenAI API request.
-
-The V2 benchmark notebook defaults to:
-
-```python
-RUN_LLM = False
-```
-
-Independent LLM benchmarking must therefore be enabled deliberately. The reconciled workflow demonstration also suppresses LLM backfill so the missing-value and conflict cases remain reproducible.
-
-## Observed benchmark behavior
-
-The controlled benchmark intentionally exposes limitations rather than forcing perfect scores.
-
-Current runs show that:
-
-- table-grid extraction performs strongly on generated structured tables and can preserve reporting year and location;
-- regex performs strongly on several quantitative values and units but does not currently capture year/location in the same way;
-- NLP contributes mainly on the controlled narrative case;
-- table-plain contributes little on the current generated PDFs;
-- qualitative KPI coverage is more limited for deterministic text methods;
-- some alternative-unit normalization paths remain incomplete;
-- deterministic methods correctly leave the controlled omitted water-consumption metric missing;
-- the hybrid reconciled workflow correctly flags the controlled same-context water-withdrawal disagreement for review.
-
-These are observed benchmark results, not predetermined claims.
-
-## Installation
-
-Python 3.12+ is required.
+Install the locked environment:
 
 ```bash
-uv sync
+uv sync --locked
 ```
 
-The development dependency group includes `ipykernel` so the benchmark notebook can execute in the project environment.
-
-## Command-line usage
-
-Run the operational extraction façade:
+Run the reconciled pipeline:
 
 ```bash
 uv run esg-extract data/samples/esg_simple_text.pdf
@@ -208,28 +223,75 @@ uv run esg-extract \
   --output output.json
 ```
 
-The CLI currently writes fused KPI extraction results to JSON.
+The CLI writes JSON containing the source PDF path and reconciled KPI results, including status, conflict/review flags, and supporting evidence.
 
-The reconciled workflow is available through Python:
+## Python API
+
+### Reconciled workflow
 
 ```python
-from esg.pipeline.pipeline import ESGPipelineV2
+from esg.pipeline.pipeline import ESGPipeline
 
-pipeline = ESGPipelineV2()
+pipeline = ESGPipeline()
 results = pipeline.run_on_pdf_reconciled("report.pdf")
 ```
 
-## Tests
+This returns evidence-based `ReconciledKPIResult` objects.
 
-Run:
+### Compact extraction/fusion API
 
-```bash
-uv run pytest -q
+```python
+from esg.pipeline.pipeline import ESGPipeline
+
+pipeline = ESGPipeline()
+results = pipeline.run_on_pdf("report.pdf")
 ```
 
-The test suite covers schema validation, extractors, normalization, evidence preservation, reconciliation, nature-related KPIs, benchmark generation, method-level evaluation, missing-value handling, conflict detection, review flags, and workflow orchestration.
+This returns compact `KPIResult` objects.
 
-Benchmark tests mock LLM execution where needed so automated tests do not depend on live API responses.
+## Benchmark notebook
+
+The complete case-level benchmark and reconciliation demonstration is available in `notebooks/esg_benchmark.ipynb`. It regenerates the controlled disclosures, evaluates extraction methods independently against hidden ground truth, and demonstrates the missing-value and conflict cases.
+
+Execute it headlessly with:
+
+```bash
+uv run jupyter nbconvert \
+  --to notebook \
+  --execute notebooks/esg_benchmark.ipynb \
+  --output esg_benchmark-executed.ipynb \
+  --output-dir /tmp \
+  --ExecutePreprocessor.timeout=120
+```
+
+The committed source notebook is output-free; benchmark results are generated during execution.
+
+## Optional LLM assistance
+
+The LLM extractor is schema-guided and currently uses `gpt-4o-mini`.
+
+The operational workflow first runs deterministic extraction methods. If KPIs remain unresolved, LLM backfill is attempted only for those unresolved metrics.
+
+Behavior depends on `OPENAI_API_KEY`:
+
+- without the variable, LLM extraction returns no predictions and processing continues without a network call;
+- with the variable, LLM backfill may make a live OpenAI API request.
+
+Credentials are read from the environment and are not stored in the repository. A safe template is provided in `.env.example`; the local `.env` file is ignored by Git.
+
+For optional live LLM extraction, create a local environment file and add the key there:
+
+```bash
+cp .env.example .env
+```
+
+The benchmark notebook defaults to:
+
+```python
+RUN_LLM = False
+```
+
+Independent LLM benchmarking therefore has to be enabled deliberately. Automated tests mock LLM execution where needed and do not depend on live API responses.
 
 ## Project structure
 
@@ -238,15 +300,18 @@ esg-llm-platform/
 ├── data/
 │   ├── benchmark/
 │   │   ├── cases/
-│   │   ├── generated/        # ignored derived PDFs
+│   │   ├── generated/        # ignored, reproducible PDFs
 │   │   └── truth/
 │   └── samples/
+│       ├── esg_nlp_test.pdf
+│       ├── esg_simple_mixed.pdf
+│       ├── esg_simple_table.pdf
+│       ├── esg_simple_text.pdf
+│       └── make_samples.py
 ├── docs/
-│   └── V2_SPEC.md
+│   └── DESIGN.md
 ├── notebooks/
-│   ├── 01-notebook-test-pipeline.ipynb
-│   ├── 02-notebook-analysis.ipynb
-│   └── 03-v2-benchmark.ipynb
+│   └── esg_benchmark.ipynb
 ├── src/esg/
 │   ├── benchmark/
 │   ├── cli/
@@ -257,28 +322,60 @@ esg-llm-platform/
 │   ├── schemas/
 │   └── utils/
 ├── tests/
+├── .env.example
+├── LICENSE
 ├── README.md
 ├── pyproject.toml
+├── pytest.ini
 └── uv.lock
 ```
 
-The first two notebooks are retained as earlier exploratory material. `03-v2-benchmark.ipynb` is the primary V2 benchmark notebook.
+## Tests
+
+Run the complete suite with:
+
+```bash
+uv run pytest -q
+```
+
+The test suite covers:
+
+- KPI schema contracts;
+- result and evidence models;
+- regex, NLP, grid-table, and plain-table extraction;
+- unit and share normalization;
+- optional LLM behavior;
+- evidence preservation;
+- reconciliation rules;
+- integrated pipeline behavior;
+- controlled benchmark generation;
+- method-level benchmark evaluation;
+- missing-value and conflict cases;
+- workflow-level evaluation;
+- command-line JSON output.
+
+Tests are separated by subsystem so failures can be traced to the corresponding architectural layer.
 
 ## Current limitations
 
-- controlled synthetic disclosures rather than production company reports;
-- method-dependent extraction coverage;
-- non-uniform year/location extraction;
-- limited qualitative KPI coverage;
-- incomplete alternative-unit conversion paths;
-- variable behavior when live LLM execution is enabled;
-- OCR/image-based extraction is not part of the core V2 benchmark.
+- benchmark documents are controlled synthetic disclosures rather than production company reports;
+- extraction coverage remains method-dependent;
+- reporting-year and location extraction are not uniform across methods;
+- deterministic qualitative-KPI extraction remains limited;
+- some alternative-unit conversion paths are incomplete;
+- live LLM behavior can vary when explicitly enabled;
+- OCR/image-based extraction is outside the core benchmark;
+- the project is not intended to be a production ESG reporting platform.
 
-The project is intentionally a compact methodological prototype, not a production ESG reporting platform.
+These limitations are stated explicitly because the project is intended to demonstrate extraction methodology, provenance, reconciliation, and reproducible evaluation rather than hide unresolved cases.
 
-## Design specification
+## Development history
 
-See `docs/V2_SPEC.md` for the V2 scope, evidence model, reconciliation rules, benchmark design, LLM modes, and acceptance criteria.
+An earlier extraction prototype is preserved under the `v1.0.0` Git tag. The current repository contains the consolidated extraction, evidence, reconciliation, and benchmark architecture.
+
+## Technical design
+
+See `docs/DESIGN.md` for the detailed architecture, evidence model, reconciliation rules, benchmark design, LLM modes, and evaluation methodology.
 
 ## License
 
@@ -286,9 +383,10 @@ MIT License.
 
 ## Author
 
-**Golib Sanaev**
-
-Data Science · Applied Econometrics · Sustainability Data
+**Golib Sanaev**<br>
+Data Analyst & Applied Data Scientist<br>
+Econometrics · Statistical Modelling · Sustainability Data · Reproducible Workflows
 
 - GitHub: https://github.com/gsanaev
 - LinkedIn: https://linkedin.com/in/golib-sanaev
+- Email: gsanaev80@gmail.com

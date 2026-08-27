@@ -1,13 +1,13 @@
 # tests/test_pipeline.py
 from pathlib import Path
 import pytest
-from esg.pipeline.pipeline import ESGPipelineV2, run_pipeline
+from esg.pipeline.pipeline import ESGPipeline, run_pipeline
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 
-PDF_TABLE = Path("data/samples/esg_simple_table.pdf")   # updated
-PDF_NLP_ONLY = Path("data/samples/esg_simple_text.pdf") # updated
+PDF_TABLE = Path("data/samples/esg_simple_table.pdf")
+PDF_NLP_ONLY = Path("data/samples/esg_simple_text.pdf")
 
 @pytest.fixture(autouse=True)
 def disable_llm_api(monkeypatch):
@@ -44,7 +44,7 @@ def test_pipeline_with_nlp_fallback():
     assert ghg.source in (["regex"], ["nlp"], ["table"], ["table_v3"])
 
 def test_pipeline_preserves_evidence_before_fusion():
-    pipeline = ESGPipelineV2()
+    pipeline = ESGPipeline()
 
     results, evidence = pipeline.run_on_pdf_with_evidence(str(PDF_TABLE))
 
@@ -97,7 +97,7 @@ def test_pipeline_preserves_multiple_same_method_evidence(tmp_path):
 
     doc.build([table])
 
-    pipeline = ESGPipelineV2()
+    pipeline = ESGPipeline()
     results, evidence = pipeline.run_on_pdf_with_evidence(
         str(pdf_path)
     )
@@ -153,7 +153,7 @@ def test_pipeline_preserves_multiple_same_method_evidence(tmp_path):
 
 
 def test_pipeline_produces_reconciled_results():
-    pipeline = ESGPipelineV2()
+    pipeline = ESGPipeline()
 
     results = pipeline.run_on_pdf_reconciled(
         str(PDF_TABLE)
@@ -200,7 +200,7 @@ def test_pipeline_distinguishes_water_withdrawal_and_consumption(tmp_path):
 
     doc.build([table])
 
-    pipeline = ESGPipelineV2()
+    pipeline = ESGPipeline()
 
     results, evidence = pipeline.run_on_pdf_with_evidence(
         str(pdf_path)
@@ -284,7 +284,7 @@ def test_pipeline_normalizes_water_stress_share(tmp_path):
 
     doc.build([table])
 
-    pipeline = ESGPipelineV2()
+    pipeline = ESGPipeline()
 
     results, evidence = pipeline.run_on_pdf_with_evidence(
         str(pdf_path)
@@ -367,7 +367,7 @@ def test_pipeline_preserves_facility_location_context(tmp_path):
 
     doc.build([table])
 
-    pipeline = ESGPipelineV2()
+    pipeline = ESGPipeline()
 
     _, evidence = pipeline.run_on_pdf_with_evidence(
         str(pdf_path)
@@ -450,7 +450,7 @@ def test_pipeline_preserves_qualitative_water_dependency(tmp_path):
 
     doc.build([table])
 
-    pipeline = ESGPipelineV2()
+    pipeline = ESGPipeline()
 
     results, evidence = pipeline.run_on_pdf_with_evidence(
         str(pdf_path)

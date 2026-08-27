@@ -128,9 +128,9 @@ def fuse_all_sources(
 # ----------------------------------------------------------
 # Main Pipeline
 # ----------------------------------------------------------
-class ESGPipelineV2:
+class ESGPipeline:
     """
-    Unified v2 pipeline combining:
+    Unified ESG KPI extraction and reconciliation pipeline combining:
         - table_grid (grid tables)
         - table_plain (text-based tables)
         - regex (raw text)
@@ -305,9 +305,9 @@ class ESGPipelineV2:
         pdf_path: str,
     ) -> List[ReconciledKPIResult]:
         """
-        Run the pipeline and reconcile preserved evidence into final v2 results.
+        Run the pipeline and reconcile preserved evidence into final results.
 
-        The existing run_on_pdf() API remains unchanged for compatibility.
+        The compact run_on_pdf() API remains available for simpler extraction use cases.
         """
         _, evidence = self.run_on_pdf_with_evidence(pdf_path)
 
@@ -324,12 +324,16 @@ class ESGPipelineV2:
 
     def run_on_pdf(self, pdf_path: str) -> List[KPIResult]:
         """
-        Compatibility API returning the current final KPI results.
+        Return compact KPI results from the extraction/fusion path.
         """
         results, _ = self.run_on_pdf_with_evidence(pdf_path)
         return results
 
 
+# Backward-compatible alias for the 2.0 public class name.
+ESGPipelineV2 = ESGPipeline
+
+
 # Convenience API
 def run_pipeline(pdf_path: str) -> List[KPIResult]:
-    return ESGPipelineV2().run_on_pdf(pdf_path)
+    return ESGPipeline().run_on_pdf(pdf_path)

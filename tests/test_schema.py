@@ -46,7 +46,7 @@ def test_schema_helpers_fall_back_to_metric_code():
     assert get_synonyms("water_withdrawal", {}) == ["water withdrawal"]
 
 
-def test_universal_kpi_schema_has_explicit_v2_contract():
+def test_universal_kpi_schema_has_explicit_contract():
     with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
         schema = json.load(f)
 

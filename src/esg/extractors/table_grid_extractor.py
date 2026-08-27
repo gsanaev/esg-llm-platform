@@ -273,7 +273,7 @@ def extract_kpi_candidates_tables_grid(
     """
     Extract all table-grid observations for each KPI.
 
-    Unlike the compatibility API, this function preserves repeated
+    Unlike the single-result API, this function preserves repeated
     observations across rows, tables, and pages for later reconciliation.
     """
     logger.info("table_grid: extracting all candidates from %s", pdf_path)

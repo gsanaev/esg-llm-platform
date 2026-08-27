@@ -169,7 +169,7 @@ def extract_kpi_candidates_tables_plain(
     """
     Extract all plaintext-table observations for each KPI.
 
-    Unlike the compatibility API, this function preserves repeated
+    Unlike the single-result API, this function preserves repeated
     observations across lines and pages for later reconciliation.
     """
     logger.info("table_plain: extracting all candidates from %s", pdf_path)

@@ -1,4 +1,4 @@
-# src/esg/cli/run_v2.py
+# src/esg/cli/run.py
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from esg.core.types import ReconciledKPIResult
-from esg.pipeline.pipeline import ESGPipelineV2
+from esg.pipeline.pipeline import ESGPipeline
 
 logging.basicConfig(
     level=logging.INFO,
@@ -51,7 +51,7 @@ def main() -> None:
         pdf_path,
     )
 
-    pipeline = ESGPipelineV2()
+    pipeline = ESGPipeline()
     results = pipeline.run_on_pdf_reconciled(pdf_path)
 
     data = {

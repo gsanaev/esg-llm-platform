@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sys
 
-from esg.cli import run_v2
+from esg.cli import run
 from esg.core.types import EvidenceCandidate, ReconciledKPIResult
 
 
@@ -34,7 +34,7 @@ def test_cli_writes_reconciled_results(monkeypatch, tmp_path):
     )
 
     monkeypatch.setattr(
-        run_v2.ESGPipelineV2,
+        run.ESGPipeline,
         "run_on_pdf_reconciled",
         lambda self, pdf_path: [reconciled],
     )
@@ -52,7 +52,7 @@ def test_cli_writes_reconciled_results(monkeypatch, tmp_path):
         ],
     )
 
-    run_v2.main()
+    run.main()
 
     data = json.loads(output_path.read_text(encoding="utf-8"))
 

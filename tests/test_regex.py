@@ -11,7 +11,7 @@ from esg.utils.pdf_reader import extract_text
 
 
 SCHEMA_PATH = Path("src/esg/schemas/universal_kpis.json")
-PDF_PATH = Path("data/samples/esg_simple_text.pdf")   # updated
+PDF_PATH = Path("data/samples/esg_simple_text.pdf")
 
 
 def load_kpis():

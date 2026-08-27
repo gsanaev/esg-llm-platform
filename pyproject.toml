@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-esg-extract = "esg.cli.run_v2:main"
+esg-extract = "esg.cli.run:main"
 
 [build-system]
 requires = ["setuptools>=77"]

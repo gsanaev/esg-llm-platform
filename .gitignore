@@ -51,27 +51,17 @@ temp/
 ########################################
 # Project data
 ########################################
-# Ignore real PDF reports
+# Keep real/raw company reports local.
 data/raw/*.pdf
 !data/raw/
 !data/raw/.keep
 
-# Output (pipeline exports)
+# Generated pipeline outputs.
 data/out/
 out/
-*.csv
-*.json
-!src/esg/schemas/*.json
-
+output.json
 output_*.json
 out_*.json
-ms_v2.json
-
-########################################
-# HTML exports
-########################################
-# If you want to KEEP exported HTML notebooks (recommended), comment these out
-# docs/*.html
 
 ########################################
 # Build artifacts

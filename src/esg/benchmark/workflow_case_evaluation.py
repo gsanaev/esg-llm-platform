@@ -5,7 +5,7 @@ from typing import Any, Mapping
 from esg.benchmark.workflow_evaluation import (
     evaluate_reconciled_results,
 )
-from esg.pipeline.pipeline import ESGPipelineV2
+from esg.pipeline.pipeline import ESGPipeline
 
 
 def evaluate_benchmark_workflow_case(
@@ -29,7 +29,7 @@ def evaluate_benchmark_workflow_case(
             f"expected_reconciliation: {case_id}"
         )
 
-    pipeline = ESGPipelineV2()
+    pipeline = ESGPipeline()
 
     reconciled = pipeline.run_on_pdf_reconciled(
         pdf_path

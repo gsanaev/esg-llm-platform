@@ -273,7 +273,7 @@ def reconcile_metric_evidence(
 
     reconciled_value = values[0]
 
-    # V2_SPEC: LLM output alone is insufficient for automatic acceptance.
+    # LLM output alone is insufficient for automatic acceptance.
     if all(
         candidate.extraction_method == "llm"
         for candidate in usable

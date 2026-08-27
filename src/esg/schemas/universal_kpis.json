@@ -3,7 +3,7 @@
     "display_name": "Total GHG Emissions",
     "value_type": "quantitative",
     "canonical_unit": "tCO2e",
-    "accepted_units": ["tCO2e", "tco2e", "TCOne", "tCOne"],
+    "accepted_units": ["tCO2e", "tco2e"],
     "synonyms": [
       "total ghg emissions",
       "ghg emissions total"
